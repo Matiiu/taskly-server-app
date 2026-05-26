@@ -1,0 +1,23 @@
+# Build & coverage
+build
+coverage
+dist
+
+# Dependencies
+node_modules
+
+# Logs & caches
+*.log
+*.tsbuildinfo
+
+# Environment files — never format these
+.env
+.env.*
+
+# Prisma migrations — auto-generated, don't touch
+prisma/migrations
+
+# Package manager locks — formatting these causes unnecessary diffs
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
