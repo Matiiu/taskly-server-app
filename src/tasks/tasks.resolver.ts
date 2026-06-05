@@ -1,0 +1,119 @@
+import { Resolver, Mutation, Args, Query, Int } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
+
+import { CurrentUser } from '@/auth/decorators/current-user.decorator';
+import { TasksService } from '@/tasks/tasks.service';
+import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { CreateTaskInput } from '@/tasks/dto/create-task.input';
+import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
+import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';
+import { TaskActionType } from '@/tasks/entities/task-action-type';
+import { PaginatedTaskType } from '@/tasks/entities/paginated-task.type';
+import { TaskType } from '@/tasks/entities/task.type';
+import { TaskExists } from '@/tasks/decorators/task-exists.decorator';
+import { TaskExistsGuard } from '@/tasks/guards/task-exists.guard';
+import type { User, Task } from 'generated/prisma/client';
+
+@Resolver()
+@UseGuards(JwtAuthGuard)
+export class TasksResolver {
+  constructor(private readonly tasksService: TasksService) {}
+
+  @Mutation(() => TaskActionType, { name: 'createMyTask' })
+  async createMyTask(
+    @CurrentUser('sub') userId: User['id'],
+    @Args('input') input: CreateTaskInput,
+  ): Promise<TaskActionType> {
+    const task = await this.tasksService.create(userId, input);
+
+    return {
+      message: `Task ${task.title} created successfully`,
+      task,
+    };
+  }
+
+  @Query(() => PaginatedTaskType, { name: 'myTasks' })
+  findMyTasks(
+    @CurrentUser('sub') userId: User['id'],
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args('page', { type: () => Int, nullable: true }) page?: number,
+    @Args('title', { type: () => String, nullable: true }) title?: string,
+  ): Promise<PaginatedTaskType> {
+    return this.tasksService.findMany(userId, { limit, page, title });
+  }
+
+  @Query(() => TaskType, { name: 'myTask' })
+  @TaskExists({ by: 'id', arg: 'id' })
+  @UseGuards(TaskExistsGuard)
+  findMyTask(
+    @CurrentUser('sub') userId: User['id'],
+    @Args('id', { type: () => String }) id: Task['id'],
+  ): Promise<TaskType> {
+    return this.tasksService.findOne(userId, id);
+  }
+
+  @Mutation(() => TaskActionType, { name: 'updateMyTask' })
+  @TaskExists({ by: 'id', arg: 'id' })
+  @UseGuards(TaskExistsGuard)
+  async updateMyTask(
+    @CurrentUser('sub') userId: User['id'],
+    @Args('id', { type: () => String }) id: Task['id'],
+    @Args('input') input: CreateTaskInput,
+  ): Promise<TaskActionType> {
+    await this.tasksService.update(id, userId, input);
+
+    const task = await this.tasksService.findOne(userId, id);
+
+    return {
+      message: `Task ${task.title} updated successfully`,
+      task,
+    };
+  }
+
+  @Mutation(() => TaskActionType, { name: 'updateMyTaskStatus' })
+  @TaskExists({ by: 'id', arg: 'id' })
+  @UseGuards(TaskExistsGuard)
+  async updateMyStatus(
+    @CurrentUser('sub') userId: User['id'],
+    @Args('id', { type: () => String }) id: Task['id'],
+    @Args('input') input: UpdateTaskStatusInput,
+  ): Promise<TaskActionType> {
+    const task = await this.tasksService.updateStatus(id, userId, input);
+
+    return {
+      message: `The status of task ${task.title} updated successfully to ${task.status?.name}`,
+      task,
+    };
+  }
+
+  @Mutation(() => TaskActionType, { name: 'updateMyTaskCategory' })
+  @TaskExists({ by: 'id', arg: 'id' })
+  @UseGuards(TaskExistsGuard)
+  async updateMyCategory(
+    @CurrentUser('sub') userId: User['id'],
+    @Args('id', { type: () => String }) id: Task['id'],
+    @Args('input') input: UpdateTaskCategoryInput,
+  ): Promise<TaskActionType> {
+    const task = await this.tasksService.updateCategory(id, userId, input);
+
+    return {
+      message: `The category of task ${task.title} updated successfully to ${task.category?.name}`,
+      task,
+    };
+  }
+
+  @Mutation(() => TaskActionType, { name: 'removeMyTask' })
+  @TaskExists({ by: 'id', arg: 'id' })
+  @UseGuards(TaskExistsGuard)
+  async removeMyTask(
+    @CurrentUser('sub') userId: User['id'],
+    @Args('id', { type: () => String }) id: Task['id'],
+  ): Promise<TaskActionType> {
+    const task = await this.tasksService.remove(id);
+
+    return {
+      message: `Task ${task.title} removed successfully`,
+      task,
+    };
+  }
+}

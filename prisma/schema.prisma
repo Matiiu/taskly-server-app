@@ -1,0 +1,182 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------
+// Enums
+// ----------------------------
+
+enum AuditAction {
+  REGISTER_USER
+  LOGIN_USER
+  LOGOUT_USER
+  RECOVER_PASSWORD
+  CHANGE_PASSWORD
+  UPDATE_USER
+  INACTIVATE_USER
+  CREATE_TASK
+  UPDATE_TASK
+  INACTIVATE_TASK
+  UPDATE_COLOR_CATEGORY
+  DELETE_CATEGORY
+  ASSIGN_TASK
+  UNASSIGN_TASK
+  UPDATE_COLOR_STATUS
+  DELETE_STATUS
+}
+
+enum AuditEntity {
+  Task
+  Category
+  User
+  Status
+  TaskAssignee
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  GITHUB
+}
+
+enum DocumentType {
+  DNI
+  PASSPORT
+  DRIVER_LICENSE
+}
+
+// ----------------------------
+// Models
+// ----------------------------
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  action      AuditAction
+  entity      AuditEntity
+  entityId    String      // primary affected record id
+  before      Json?       // snapshot before the change
+  after       Json?       // snapshot after the change
+  description String?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([entity, entityId])  // query all logs for a specific record
+  @@index([action])            // filter by action type
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  lastName  String
+  documentType DocumentType
+  documentNumber String @unique
+  code      String   @unique
+  email     String   @unique
+  phoneNumber String?
+  phoneCountryCode String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  active  Boolean  @default(true)
+  source   AuthProvider?
+  tasks     Task[]
+  auditLogs AuditLog[]
+  revokedTokens RevokedToken[]
+  statuses   Status[]
+  categories Category[]
+  assignedTasks  TaskAssignee[]
+}
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  jti       String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String                                    
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)                   
+
+  tasks     Task[]
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime?  @db.Date
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  active    Boolean    @default(true)
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  categoryId  String?
+  category    Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  statusId   String?
+  status     Status?  @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  assignees   TaskAssignee[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([statusId])
+}
+
+model Status {
+  id        String   @id @default(uuid())
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tasks     Task[]
+
+  @@unique([name, userId]) // same user can't have two statuses with the same name
+  @@index([userId])
+}
+
+model TaskAssignee {
+  taskId    String
+  userId    String
+  assignedAt DateTime @default(now())
+
+  task      Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId]) // composite PK, no duplicates
+  @@index([userId])
+  @@index([taskId])
+}
