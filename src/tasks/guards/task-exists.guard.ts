@@ -33,7 +33,7 @@ export class TaskExistsGuard implements CanActivate {
     const gqlContext = GqlExecutionContext.create(context);
     const request = gqlContext.getContext<{ req?: RequestWithUser }>().req;
     const args = gqlContext.getArgs<Record<string, unknown>>();
-    const options =
+    const options: TaskExistsOptions =
       this.reflector.getAllAndOverride<TaskExistsOptions>(TASK_EXISTS_OPTIONS, [
         context.getHandler(),
         context.getClass(),
@@ -41,6 +41,7 @@ export class TaskExistsGuard implements CanActivate {
     const by = options.by ?? 'id';
     const arg = options.arg;
     const requireActive = options.requireActive ?? true;
+    const ownerOnly = options.ownerOnly ?? true;
     const value = this.resolveLookupValue(by, arg, args);
     const userId = request?.user?.sub;
 
@@ -54,7 +55,7 @@ export class TaskExistsGuard implements CanActivate {
 
     const where = {
       ...this.toWhere(by, value),
-      userId,
+      ...(ownerOnly ? { userId } : { OR: [{ userId }, { assignees: { some: { userId } } }] }),
       ...(requireActive ? { active: true } : {}),
     };
 

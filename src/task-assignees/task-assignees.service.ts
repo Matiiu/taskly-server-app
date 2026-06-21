@@ -39,7 +39,6 @@ export class TaskAssigneesService {
           userId: input.assigneeId,
         },
       });
-
       this.eventEmitter.emitAuditLog({
         userId,
         action: 'ASSIGN_TASK',

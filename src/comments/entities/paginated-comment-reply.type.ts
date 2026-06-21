@@ -1,12 +1,12 @@
 import { Field, ObjectType } from '@nestjs/graphql';
 
 import { PaginationMetaType } from '@/common/entities/pagination-meta.type';
-import { CategoryType } from '@/categories/entities/category.type';
+import { CommentReplyType } from '@/comments/entities/comment-reply.type';
 
 @ObjectType()
-export class PaginatedCategoriesType {
-  @Field(() => [CategoryType])
-  categories: CategoryType[];
+export class PaginatedCommentReplyType {
+  @Field(() => [CommentReplyType])
+  replies: CommentReplyType[];
 
   @Field(() => PaginationMetaType)
   meta: PaginationMetaType;

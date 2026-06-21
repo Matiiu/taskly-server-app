@@ -9,12 +9,14 @@ import { TaskType } from '@/tasks/entities/task.type';
 import type { Prisma, User, Task } from 'generated/prisma/client';
 import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
 import { paginationMeta } from '@/common/utils/pagination.util';
-import { PaginatedTaskType } from './entities/paginated-task.type';
+import { PaginatedTaskSummaryType } from './entities/paginated-task-summary.type';
 import { StatusesService } from '@/statuses/statuses.service';
 import { CategoriesService } from '@/categories/categories.service';
+import { TaskSummaryType } from '@/tasks/entities/task-summary.type';
 
 const DEFAULT_TASK_SELECT = {
   id: true,
+  userId: true,
   title: true,
   description: true,
   dueDate: true,
@@ -35,7 +37,7 @@ const DEFAULT_TASK_SELECT = {
       },
     },
   },
-} as const;
+} satisfies Prisma.TaskSelect;
 
 type TaskWithRelations = Prisma.TaskGetPayload<{
   select: typeof DEFAULT_TASK_SELECT;
@@ -80,7 +82,7 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(task);
+      return this.toTaskResponse(task, userId);
     } catch (e) {
       this.logger.error('Error creating task', e);
       throw new BadRequestException('Failed to create task');
@@ -94,10 +96,10 @@ export class TasksService {
       page = PAGE_DEFAULT,
       title,
     }: { limit?: number; page?: number; title?: string } = {},
-  ): Promise<PaginatedTaskType> {
+  ): Promise<PaginatedTaskSummaryType> {
     const where = {
       active: true,
-      userId,
+      OR: [{ userId }, { assignees: { some: { userId } } }],
       ...(title && { title: { contains: title, mode: 'insensitive' as const } }),
     };
     const [total, tasks] = await this.prisma.$transaction([
@@ -111,7 +113,7 @@ export class TasksService {
       }),
     ]);
     return {
-      tasks: tasks.map((task) => this.toTaskResponse(task)),
+      tasks: tasks.map((task) => this.toTaskSummaryResponse(task)),
       meta: paginationMeta(total, page, limit),
     };
   }
@@ -120,7 +122,7 @@ export class TasksService {
     const task = await this.prisma.task.findFirst({
       where: {
         id,
-        userId,
+        OR: [{ userId }, { assignees: { some: { userId } } }],
         active: true,
       },
       select: DEFAULT_TASK_SELECT,
@@ -130,7 +132,7 @@ export class TasksService {
       throw new NotFoundException('Task not found');
     }
 
-    return this.toTaskResponse(task);
+    return this.toTaskResponse(task, userId);
   }
 
   async update(
@@ -140,7 +142,7 @@ export class TasksService {
   ): Promise<TaskType> {
     const existingTask = await this.prisma.task.findUniqueOrThrow({
       where: { id },
-      select: { userId: true, ...DEFAULT_TASK_SELECT },
+      select: DEFAULT_TASK_SELECT,
     });
 
     try {
@@ -178,7 +180,7 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(updatedTask);
+      return this.toTaskResponse(updatedTask, userId);
     } catch (e) {
       this.logger.error('Error updating task', e);
       throw new BadRequestException('Failed to update task');
@@ -192,12 +194,12 @@ export class TasksService {
   ): Promise<TaskType> {
     const userTask = await this.prisma.task.findUniqueOrThrow({
       where: { id },
-      select: { userId: true, statusId: true, ...DEFAULT_TASK_SELECT },
+      select: { statusId: true, ...DEFAULT_TASK_SELECT },
     });
 
     const status = await this.statusesService.findByIdOrNameOrCreate(userId, input);
 
-    if (userTask.statusId === status.id) return this.toTaskResponse(userTask);
+    if (userTask.statusId === status.id) return this.toTaskResponse(userTask, userId);
 
     try {
       const updatedTask = await this.prisma.task.update({
@@ -230,7 +232,7 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(updatedTask);
+      return this.toTaskResponse(updatedTask, userId);
     } catch (e) {
       this.logger.error('Error updating task status', e);
       throw new BadRequestException('Failed to update task status');
@@ -244,12 +246,12 @@ export class TasksService {
   ): Promise<TaskType> {
     const userTask = await this.prisma.task.findUniqueOrThrow({
       where: { id },
-      select: { userId: true, categoryId: true, ...DEFAULT_TASK_SELECT },
+      select: { categoryId: true, ...DEFAULT_TASK_SELECT },
     });
 
     const category = await this.categoriesService.findByIdOrNameOrCreate(userId, input);
 
-    if (userTask.categoryId === category.id) return this.toTaskResponse(userTask);
+    if (userTask.categoryId === category.id) return this.toTaskResponse(userTask, userId);
 
     try {
       const updatedTask = await this.prisma.task.update({
@@ -282,7 +284,7 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(updatedTask);
+      return this.toTaskResponse(updatedTask, userId);
     } catch (e) {
       this.logger.error('Error updating task category', e);
       throw new BadRequestException('Failed to update task category');
@@ -294,7 +296,7 @@ export class TasksService {
       where: {
         id,
       },
-      select: { userId: true, ...DEFAULT_TASK_SELECT },
+      select: DEFAULT_TASK_SELECT,
     });
 
     try {
@@ -328,14 +330,14 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(removedTask);
+      return this.toTaskResponse(removedTask, userTask.userId);
     } catch (e) {
       this.logger.error('Error removing task', e);
       throw new BadRequestException('Failed to remove task');
     }
   }
 
-  private toTaskResponse(task: TaskWithRelations): TaskType {
+  private toTaskResponse(task: TaskWithRelations, currentUserId: User['id']): TaskType {
     return {
       id: task.id,
       title: task.title,
@@ -345,7 +347,21 @@ export class TasksService {
       updatedAt: task.updatedAt,
       status: task.status,
       category: task.category,
+      isOwner: task.userId === currentUserId,
       taskAssignees: task.assignees.map(({ user }) => user),
+    };
+  }
+
+  private toTaskSummaryResponse(task: TaskWithRelations): TaskSummaryType {
+    return {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      dueDate: task.dueDate,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      status: task.status,
+      category: task.category,
     };
   }
 }

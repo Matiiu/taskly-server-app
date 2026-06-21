@@ -6,6 +6,7 @@ export type TaskExistsOptions = {
   by?: TaskLookupBy;
   arg?: string;
   requireActive?: boolean;
+  ownerOnly?: boolean;
 };
 
 export const TASK_EXISTS_OPTIONS = 'task_exists_options';

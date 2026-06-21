@@ -23,6 +23,9 @@ enum AuditAction {
   CREATE_TASK
   UPDATE_TASK
   INACTIVATE_TASK
+  CREATE_COMMENT
+  UPDATE_COMMENT
+  INACTIVATE_COMMENT
   UPDATE_COLOR_CATEGORY
   DELETE_CATEGORY
   ASSIGN_TASK
@@ -37,6 +40,7 @@ enum AuditEntity {
   User
   Status
   TaskAssignee
+  Comment
 }
 
 enum AuthProvider {
@@ -97,6 +101,8 @@ model User {
   statuses   Status[]
   categories Category[]
   assignedTasks  TaskAssignee[]
+  comments       Comment[]
+  commentReplies CommentReply[]
 }
 
 model RevokedToken {
@@ -146,10 +152,49 @@ model Task {
   statusId   String?
   status     Status?  @relation(fields: [statusId], references: [id], onDelete: SetNull)
   assignees   TaskAssignee[]
+  comments    Comment[]
 
   @@index([userId])
   @@index([categoryId])
   @@index([statusId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  edited    Boolean  @default(false)
+  active    Boolean  @default(true)
+
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  replies   CommentReply[]
+
+  @@index([taskId])
+  @@index([userId])
+}
+
+model CommentReply {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  edited    Boolean  @default(false)
+  active    Boolean  @default(true)
+
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+  @@index([userId])
 }
 
 model Status {

@@ -12,6 +12,7 @@ import { TasksModule } from '@/tasks/tasks.module';
 import { AuditLogModule } from '@/audit-log/audit-log.module';
 import { CommonModule } from '@/common/common.module';
 import { TaskAssigneesModule } from '@/task-assignees/task-assignees.module';
+import { CommentsModule } from '@/comments/comments.module';
 import '@/common/enums/global.enum';
 
 @Module({
@@ -28,6 +29,7 @@ import '@/common/enums/global.enum';
     UsersModule,
     TasksModule,
     TaskAssigneesModule,
+    CommentsModule,
     AuditLogModule,
   ],
 })

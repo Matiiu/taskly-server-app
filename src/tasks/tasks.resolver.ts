@@ -8,7 +8,7 @@ import { CreateTaskInput } from '@/tasks/dto/create-task.input';
 import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';
 import { TaskActionType } from '@/tasks/entities/task-action-type';
-import { PaginatedTaskType } from '@/tasks/entities/paginated-task.type';
+import { PaginatedTaskSummaryType } from '@/tasks/entities/paginated-task-summary.type';
 import { TaskType } from '@/tasks/entities/task.type';
 import { TaskExists } from '@/tasks/decorators/task-exists.decorator';
 import { TaskExistsGuard } from '@/tasks/guards/task-exists.guard';
@@ -32,18 +32,18 @@ export class TasksResolver {
     };
   }
 
-  @Query(() => PaginatedTaskType, { name: 'myTasks' })
+  @Query(() => PaginatedTaskSummaryType, { name: 'myTasks' })
   findMyTasks(
     @CurrentUser('sub') userId: User['id'],
     @Args('limit', { type: () => Int, nullable: true }) limit?: number,
     @Args('page', { type: () => Int, nullable: true }) page?: number,
     @Args('title', { type: () => String, nullable: true }) title?: string,
-  ): Promise<PaginatedTaskType> {
+  ): Promise<PaginatedTaskSummaryType> {
     return this.tasksService.findMany(userId, { limit, page, title });
   }
 
   @Query(() => TaskType, { name: 'myTask' })
-  @TaskExists({ by: 'id', arg: 'id' })
+  @TaskExists({ by: 'id', arg: 'id', ownerOnly: false })
   @UseGuards(TaskExistsGuard)
   findMyTask(
     @CurrentUser('sub') userId: User['id'],

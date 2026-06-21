@@ -40,6 +40,10 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
 
+      if (!payload?.jti) {
+        throw new UnauthorizedException('Invalid authorization token');
+      }
+
       const revokedToken = await this.prisma.revokedToken.findFirst({
         where: {
           jti: payload.jti,
@@ -62,6 +66,15 @@ export class JwtAuthGuard implements CanActivate {
       if (e instanceof HttpException) {
         throw e;
       }
+
+      if ((e as { name?: string })?.name === 'TokenExpiredError') {
+        throw new UnauthorizedException('Token expired. Please sign in again');
+      }
+
+      if ((e as { name?: string })?.name === 'JsonWebTokenError') {
+        throw new UnauthorizedException('Invalid authorization token');
+      }
+
       throw new UnauthorizedException('Invalid or expired token');
     }
   }

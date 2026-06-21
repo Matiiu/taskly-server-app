@@ -1,6 +1,6 @@
 // common/types/audit-payload.types.ts
 import type { AuditAction, AuditLog } from 'generated/prisma/client';
-import type { User, Task, Status, Category } from 'generated/prisma/client';
+import type { User, Task, Status, Category, Comment } from 'generated/prisma/client';
 
 // Reusable snapshots
 type UserSnapshot = Pick<
@@ -29,6 +29,8 @@ type StatusSnapshot = Pick<Status, 'id' | 'name' | 'color'>;
 
 type CategorySnapshot = Pick<Category, 'id' | 'name' | 'color'>;
 
+type CommentSnapshot = Pick<Comment, 'id' | 'content' | 'taskId' | 'edited' | 'active'>;
+
 export type AuditChangeMap = {
   // Auth actions — minimal info is enough
   LOGIN_USER: { before: null; after: UserMinimalSnapshot };
@@ -47,6 +49,11 @@ export type AuditChangeMap = {
   CREATE_TASK: { before: null; after: TaskSnapshot };
   INACTIVATE_TASK: { before: TaskSnapshot; after: TaskSnapshot };
   UPDATE_TASK: { before: TaskSnapshot; after: TaskSnapshot };
+
+  // Comment actions
+  CREATE_COMMENT: { before: null; after: CommentSnapshot };
+  UPDATE_COMMENT: { before: CommentSnapshot; after: CommentSnapshot };
+  INACTIVATE_COMMENT: { before: CommentSnapshot; after: CommentSnapshot };
 
   // Task assignee actions
   ASSIGN_TASK: { before: null; after: TaskAssignedSnapshot };
