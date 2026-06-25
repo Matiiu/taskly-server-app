@@ -84,9 +84,9 @@ export class RegisterInput implements Partial<User> {
     message: 'code must start with @ and contain only letters, numbers, and _',
   })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @Transform(({ value }: { value: string }) => value?.toLowerCase() ?? null)
-  code: string;
+  code?: string;
 
   @Field(() => String, { nullable: true })
   @IsOptional()

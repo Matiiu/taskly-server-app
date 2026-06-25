@@ -16,6 +16,9 @@ export class PaginationMetaType implements PaginationMeta {
   @Field(() => Int)
   totalPages: number;
 
+  @Field(() => String, { nullable: true })
+  sortOrder?: string;
+
   @Field(() => Boolean)
   hasNextPage: boolean;
 

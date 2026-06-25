@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Query, Args, Int } from '@nestjs/graphql';
+import { Resolver, Mutation, Query, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
@@ -7,10 +7,10 @@ import { UsersService } from '@/users/users.service';
 import { UserExistsGuard } from '@/users/guards/user-exists.guard';
 import { UserExists } from '@/users/decorators/user-exists.decorator';
 import { UserType } from '@/users/entities/user.type';
-import { DocumentType } from 'generated/prisma/enums';
 import { PaginatedUsersType } from '@/users/entities/paginated-users.type';
 import { UpdateUserInput } from './dto/update-user.type';
 import { UserActionType } from '@/users/entities/user-action.type';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Resolver()
 @UseGuards(JwtAuthGuard, UserExistsGuard)
@@ -19,20 +19,11 @@ export class UsersResolver {
   constructor(private readonly usersService: UsersService) {}
 
   @Query(() => PaginatedUsersType, { name: 'users' })
-  findAll(
-    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
-    @Args('page', { type: () => Int, nullable: true }) page?: number,
+  findMany(
+    @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
+    pagination?: PaginationArgsInput,
   ): Promise<PaginatedUsersType> {
-    return this.usersService.findAll({ limit, page });
-  }
-
-  @Query(() => UserType, { name: 'userByDocument' })
-  @UserExists({ by: 'documentNumber' })
-  findByDocument(
-    @Args('documentType') documentType: DocumentType,
-    @Args('documentNumber') documentNumber: string,
-  ): Promise<UserType> {
-    return this.usersService.findByDocument(documentType, documentNumber);
+    return this.usersService.findMany(pagination);
   }
 
   @Query(() => UserType, { name: 'userByCode' })

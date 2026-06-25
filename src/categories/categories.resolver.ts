@@ -1,16 +1,16 @@
-import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { CurrentUser } from '@/auth/decorators/current-user.decorator';
 import { CategoriesService } from '@/categories/categories.service';
 import { PaginatedCategoriesType } from '@/categories/entities/paginated-categories.type';
-import { CategoryType } from '@/categories/entities/category.type';
 import { CategoryActionType } from '@/categories/entities/category-action.type';
 import { UpdateCategoryColorInput } from '@/categories/dto/update-category-color.input';
 import { CategoryExists } from '@/categories/decorators/category-exists.decorator';
 import { CategoryExistsGuard } from '@/categories/guards/category-exists.guard';
 import type { User, Category } from 'generated/prisma/client';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Resolver()
 @UseGuards(JwtAuthGuard)
@@ -20,11 +20,10 @@ export class CategoriesResolver {
   @Query(() => PaginatedCategoriesType, { name: 'myCategories' })
   findMyCategories(
     @CurrentUser('sub') userId: User['id'],
-    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
-    @Args('page', { type: () => Int, nullable: true }) page?: number,
-    @Args('categoryName', { type: () => String, nullable: true }) categoryName?: string,
+    @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
+    pagination: PaginationArgsInput = {},
   ): Promise<PaginatedCategoriesType> {
-    return this.categoriesService.findMany(userId, { limit, page, categoryName });
+    return this.categoriesService.findMany(userId, pagination);
   }
 
   @Mutation(() => CategoryActionType, { name: 'updateMyCategoryColor' })

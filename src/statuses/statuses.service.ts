@@ -10,6 +10,7 @@ import { PaginatedStatusesType } from './entities/paginated-statuses.type';
 import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 import { UpdateStatusColorInput } from '@/statuses/dto/update-status-color.input';
 import { DEFAULT_STATUSES, COLORS } from '@/common/constants/colors.contats';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Injectable()
 export class StatusesService {
@@ -39,15 +40,12 @@ export class StatusesService {
 
   async findMany(
     userId: User['id'],
-    {
-      limit = LIMIT_DEFAULT,
-      page = PAGE_DEFAULT,
-      statusName,
-    }: { limit?: number; page?: number; statusName?: string } = {},
+    pagination: PaginationArgsInput = {},
   ): Promise<PaginatedStatusesType> {
+    const { limit = LIMIT_DEFAULT, page = PAGE_DEFAULT, sortOrder = 'asc', query } = pagination;
     const where = {
       userId,
-      ...(statusName && { name: { contains: statusName, mode: 'insensitive' as const } }),
+      ...(query && { name: { contains: query, mode: 'insensitive' as const } }),
     };
 
     const [statuses, total] = await this.prisma.$transaction([
@@ -55,7 +53,7 @@ export class StatusesService {
         skip: (page - 1) * limit,
         take: limit,
         where,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: sortOrder },
       }),
       this.prisma.status.count({ where }),
     ]);

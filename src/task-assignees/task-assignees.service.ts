@@ -4,7 +4,11 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import { AddTaskAssigneeInput } from '@/task-assignees/dto/add-task-assignee.input';
 import { TaskAssigneeType } from '@/task-assignees/entities/task-assignee.type';
+import { PaginatedTaskAssigneesType } from '@/task-assignees/entities/paginated-task-assignees.type';
+import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
+import { paginationMeta } from '@/common/utils/pagination.util';
 import type { Task, User } from 'generated/prisma/client';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Injectable()
 export class TaskAssigneesService {
@@ -68,42 +72,53 @@ export class TaskAssigneesService {
   async findMany(
     userId: User['id'],
     taskId: Task['id'],
-    query?: string,
-  ): Promise<TaskAssigneeType[]> {
+    pagination: PaginationArgsInput = {},
+  ): Promise<PaginatedTaskAssigneesType> {
+    const { query, limit = LIMIT_DEFAULT, page = PAGE_DEFAULT, sortOrder = 'asc' } = pagination;
     await this.findOwnedTaskOrThrow(userId, taskId);
 
-    const taskAssignees = await this.prisma.taskAssignee.findMany({
-      where: {
-        taskId,
-        user: {
-          active: true,
-          ...(query
-            ? {
-                OR: [
-                  { name: { contains: query, mode: 'insensitive' as const } },
-                  { lastName: { contains: query, mode: 'insensitive' as const } },
-                  { email: { contains: query, mode: 'insensitive' as const } },
-                  { code: { contains: query, mode: 'insensitive' as const } },
-                ],
-              }
-            : {}),
-        },
+    const where = {
+      taskId,
+      user: {
+        active: true,
+        ...(query
+          ? {
+              OR: [
+                { name: { contains: query, mode: 'insensitive' as const } },
+                { lastName: { contains: query, mode: 'insensitive' as const } },
+                { email: { contains: query, mode: 'insensitive' as const } },
+                { code: { contains: query, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
       },
-      select: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            lastName: true,
-            email: true,
-            code: true,
+    };
+
+    const [total, taskAssignees] = await this.prisma.$transaction([
+      this.prisma.taskAssignee.count({ where }),
+      this.prisma.taskAssignee.findMany({
+        where,
+        select: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              lastName: true,
+              email: true,
+              code: true,
+            },
           },
         },
-      },
-      orderBy: [{ user: { name: 'asc' } }, { user: { lastName: 'asc' } }],
-    });
+        orderBy: [{ user: { name: sortOrder } }, { user: { lastName: sortOrder } }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
-    return taskAssignees.map(({ user }) => user);
+    return {
+      assignees: taskAssignees.map(({ user }) => user),
+      meta: paginationMeta(total, page, limit),
+    };
   }
 
   async remove(

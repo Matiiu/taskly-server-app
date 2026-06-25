@@ -11,6 +11,7 @@ import { UpdateStatusColorInput } from '@/statuses/dto/update-status-color.input
 import { StatusActionType } from '@/statuses/entities/status-action.type';
 import { StatusExists } from '@/statuses/decorators/status-exists.decorator';
 import { StatusExistsGuard } from '@/statuses/guards/status-exists.guard';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Resolver()
 @UseGuards(JwtAuthGuard)
@@ -20,11 +21,10 @@ export class StatusesResolver {
   @Query(() => PaginatedStatusesType, { name: 'myStatuses' })
   findMyStatuses(
     @CurrentUser('sub') userId: User['id'],
-    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
-    @Args('page', { type: () => Int, nullable: true }) page?: number,
-    @Args('statusName', { type: () => String, nullable: true }) statusName?: string,
+    @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
+    pagination?: PaginationArgsInput,
   ): Promise<PaginatedStatusesType> {
-    return this.statusesService.findMany(userId, { limit, page, statusName });
+    return this.statusesService.findMany(userId, pagination);
   }
 
   @Query(() => StatusType, { name: 'myStatus' })

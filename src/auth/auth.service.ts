@@ -39,7 +39,9 @@ export class AuthService {
 
     const code = input.code
       ? await this.ensureCodeIsAvailable(input.code)
-      : await this.generateUniqueCode(() => `user_${randomBytes(4).toString('hex')}`);
+      : await this.generateUniqueCode(
+          () => `${input.name.toLocaleLowerCase()}_${randomBytes(4).toString('hex')}`,
+        );
 
     try {
       const hashedPassword = await hashPassword(input.password);

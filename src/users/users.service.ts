@@ -1,58 +1,65 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 
+import type { Prisma, User } from 'generated/prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
-import type { User } from 'generated/prisma/client';
 import { UserType } from '@/users/entities/user.type';
-import { DocumentType } from 'generated/prisma/enums';
 import { PaginatedUsersType } from '@/users/entities/paginated-users.type';
 import { paginationMeta } from '@/common/utils/pagination.util';
 import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
 import { UpdateUserInput } from '@/users/dto/update-user.type';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: AppEventEmitterService,
   ) {}
 
-  async findAll({
-    limit = LIMIT_DEFAULT,
-    page = PAGE_DEFAULT,
-  }: {
-    limit?: number;
-    page?: number;
-  } = {}): Promise<PaginatedUsersType> {
+  async findMany(pagination: PaginationArgsInput = {}): Promise<PaginatedUsersType> {
+    const {
+      limit = LIMIT_DEFAULT,
+      page = PAGE_DEFAULT,
+      query = null,
+      sortOrder = 'desc',
+    } = pagination;
+    // Split the query into terms, trim whitespace, and filter out empty terms
+    const terms = query?.trim().split(/\s+/).filter(Boolean) ?? [];
+    const where: Prisma.UserWhereInput = {
+      active: true,
+      ...(terms.length
+        ? {
+            AND: terms.map((term) => ({
+              OR: [
+                { name: { contains: term, mode: 'insensitive' } },
+                { lastName: { contains: term, mode: 'insensitive' } },
+                { email: { contains: term, mode: 'insensitive' } },
+                { code: { contains: term, mode: 'insensitive' } },
+              ],
+            })),
+          }
+        : {}),
+    };
     const [usersResponse, total] = await this.prisma.$transaction([
       this.prisma.user.findMany({
         skip: (page - 1) * limit,
         take: limit,
-        where: { active: true },
-        orderBy: [{ name: 'asc' }, { lastName: 'asc' }],
+        where,
+        orderBy: [{ name: sortOrder }, { lastName: sortOrder }],
       }),
-      this.prisma.user.count({ where: { active: true } }),
+      this.prisma.user.count({
+        where,
+      }),
     ]);
     const users = usersResponse.map((user) => this.createResponse(user));
-    const meta = paginationMeta(total, page, limit);
-    return { users, meta };
+    return { users, meta: paginationMeta(total, page, limit) };
   }
 
   async findByCode(code: string): Promise<UserType> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { code } });
-
-    return this.createResponse(user);
-  }
-
-  async findByDocument(documentType: DocumentType, documentNumber: string): Promise<UserType> {
-    const user = await this.prisma.user.findFirstOrThrow({
-      where: {
-        documentType,
-        documentNumber,
-        active: true,
-      },
-    });
 
     return this.createResponse(user);
   }

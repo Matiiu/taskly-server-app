@@ -13,6 +13,7 @@ import { PaginatedCommentReplyType } from '@/comments/entities/paginated-comment
 import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
 import { paginationMeta } from '@/common/utils/pagination.util';
 import type { Prisma, Comment, CommentReply, Task, User } from 'generated/prisma/client';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 const COMMENT_AUTHOR_SELECT = {
   id: true,
@@ -70,8 +71,9 @@ export class CommentsService {
   async findManyByTask(
     userId: User['id'],
     taskId: Task['id'],
-    { limit = LIMIT_DEFAULT, page = PAGE_DEFAULT }: { limit?: number; page?: number } = {},
+    pagination: PaginationArgsInput = {},
   ): Promise<PaginatedCommentType> {
+    const { limit = LIMIT_DEFAULT, page = PAGE_DEFAULT, sortOrder = 'asc' } = pagination;
     await this.findOwnedTaskOrThrow(userId, taskId);
 
     const where = { taskId, active: true };
@@ -80,7 +82,7 @@ export class CommentsService {
       this.prisma.comment.findMany({
         where,
         select: COMMENT_SELECT,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -95,8 +97,9 @@ export class CommentsService {
   async findManyRepliesByComment(
     userId: User['id'],
     commentId: Comment['id'],
-    { limit = LIMIT_DEFAULT, page = PAGE_DEFAULT }: { limit?: number; page?: number } = {},
+    pagination: PaginationArgsInput = {},
   ): Promise<PaginatedCommentReplyType> {
+    const { limit = LIMIT_DEFAULT, page = PAGE_DEFAULT, sortOrder = 'asc' } = pagination;
     await this.findOwnedCommentOrThrow(userId, commentId);
 
     const where = { commentId, active: true };
@@ -105,7 +108,7 @@ export class CommentsService {
       this.prisma.commentReply.findMany({
         where,
         select: COMMENT_REPLY_SELECT,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
       }),

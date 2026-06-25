@@ -9,10 +9,11 @@ import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';
 import { TaskActionType } from '@/tasks/entities/task-action-type';
 import { PaginatedTaskSummaryType } from '@/tasks/entities/paginated-task-summary.type';
-import { TaskType } from '@/tasks/entities/task.type';
+import { TaskDetailType } from '@/tasks/entities/task-detail.type';
 import { TaskExists } from '@/tasks/decorators/task-exists.decorator';
 import { TaskExistsGuard } from '@/tasks/guards/task-exists.guard';
 import type { User, Task } from 'generated/prisma/client';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Resolver()
 @UseGuards(JwtAuthGuard)
@@ -35,20 +36,19 @@ export class TasksResolver {
   @Query(() => PaginatedTaskSummaryType, { name: 'myTasks' })
   findMyTasks(
     @CurrentUser('sub') userId: User['id'],
-    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
-    @Args('page', { type: () => Int, nullable: true }) page?: number,
-    @Args('title', { type: () => String, nullable: true }) title?: string,
+    @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
+    pagination: PaginationArgsInput = {},
   ): Promise<PaginatedTaskSummaryType> {
-    return this.tasksService.findMany(userId, { limit, page, title });
+    return this.tasksService.findMany(userId, pagination);
   }
 
-  @Query(() => TaskType, { name: 'myTask' })
+  @Query(() => TaskDetailType, { name: 'myTask' })
   @TaskExists({ by: 'id', arg: 'id', ownerOnly: false })
   @UseGuards(TaskExistsGuard)
   findMyTask(
     @CurrentUser('sub') userId: User['id'],
     @Args('id', { type: () => String }) id: Task['id'],
-  ): Promise<TaskType> {
+  ): Promise<TaskDetailType> {
     return this.tasksService.findOne(userId, id);
   }
 

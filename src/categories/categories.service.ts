@@ -10,6 +10,7 @@ import { CategoryType } from '@/categories/entities/category.type';
 import { PaginatedCategoriesType } from '@/categories/entities/paginated-categories.type';
 import { UpdateCategoryColorInput } from '@/categories/dto/update-category-color.input';
 import { COLORS } from '@/common/constants/colors.contats';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Injectable()
 export class CategoriesService {
@@ -22,15 +23,17 @@ export class CategoriesService {
 
   async findMany(
     userId: User['id'],
-    {
+    pagination: PaginationArgsInput = {},
+  ): Promise<PaginatedCategoriesType> {
+    const {
       limit = LIMIT_DEFAULT,
       page = PAGE_DEFAULT,
-      categoryName,
-    }: { limit?: number; page?: number; categoryName?: string } = {},
-  ): Promise<PaginatedCategoriesType> {
+      query = null,
+      sortOrder = 'desc',
+    } = pagination;
     const where = {
       userId,
-      ...(categoryName && { name: { contains: categoryName, mode: 'insensitive' as const } }),
+      ...(query && { name: { contains: query, mode: 'insensitive' as const } }),
     };
 
     const [categories, total]: [Category[], number] = await this.prisma.$transaction([
@@ -38,23 +41,13 @@ export class CategoriesService {
         skip: (page - 1) * limit,
         take: limit,
         where,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: sortOrder },
       }),
       this.prisma.category.count({ where }),
     ]);
 
-    const categoriesResponse: CategoryType[] = categories.map(
-      ({ id, name, color, createdAt, updatedAt }) => ({
-        id,
-        name,
-        color,
-        createdAt,
-        updatedAt,
-      }),
-    );
-
     return {
-      categories: categoriesResponse,
+      categories: categories.map((category) => this.toCategoryType(category)),
       meta: paginationMeta(total, page, limit),
     };
   }
@@ -126,7 +119,7 @@ export class CategoriesService {
         },
       });
 
-      return this.createResponse(updatedCategory);
+      return this.toCategoryType(updatedCategory);
     } catch (e) {
       this.logger.error('Error updating category', e);
       throw new BadRequestException('Failed to update category');
@@ -152,14 +145,14 @@ export class CategoriesService {
         },
       });
 
-      return this.createResponse(removedCategory);
+      return this.toCategoryType(removedCategory);
     } catch (e) {
       this.logger.error('Error removing category', e);
       throw new BadRequestException('Failed to remove category');
     }
   }
 
-  createResponse(category: Category): CategoryType {
+  toCategoryType(category: Category): CategoryType {
     const { id, name, color, createdAt, updatedAt } = category;
     return {
       id,

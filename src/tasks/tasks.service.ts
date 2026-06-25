@@ -5,14 +5,15 @@ import { AppEventEmitterService } from '@/common/event-emitter.service';
 import { CreateTaskInput } from '@/tasks/dto/create-task.input';
 import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';
-import { TaskType } from '@/tasks/entities/task.type';
+import { TaskDetailType } from '@/tasks/entities/task-detail.type';
 import type { Prisma, User, Task } from 'generated/prisma/client';
 import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
 import { paginationMeta } from '@/common/utils/pagination.util';
 import { PaginatedTaskSummaryType } from './entities/paginated-task-summary.type';
 import { StatusesService } from '@/statuses/statuses.service';
 import { CategoriesService } from '@/categories/categories.service';
-import { TaskSummaryType } from '@/tasks/entities/task-summary.type';
+import { TaskListItemType } from '@/tasks/entities/task-list.type';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 const DEFAULT_TASK_SELECT = {
   id: true,
@@ -24,19 +25,6 @@ const DEFAULT_TASK_SELECT = {
   updatedAt: true,
   status: { select: { id: true, name: true, color: true } },
   category: { select: { id: true, name: true, color: true } },
-  assignees: {
-    select: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          lastName: true,
-          email: true,
-          code: true,
-        },
-      },
-    },
-  },
 } satisfies Prisma.TaskSelect;
 
 type TaskWithRelations = Prisma.TaskGetPayload<{
@@ -54,7 +42,7 @@ export class TasksService {
     private readonly categoriesService: CategoriesService,
   ) {}
 
-  async create(userId: User['id'], input: CreateTaskInput): Promise<TaskType> {
+  async create(userId: User['id'], input: CreateTaskInput): Promise<TaskDetailType> {
     try {
       const task = await this.prisma.task.create({
         select: DEFAULT_TASK_SELECT,
@@ -91,16 +79,18 @@ export class TasksService {
 
   async findMany(
     userId: User['id'],
-    {
+    pagination: PaginationArgsInput = {},
+  ): Promise<PaginatedTaskSummaryType> {
+    const {
       limit = LIMIT_DEFAULT,
       page = PAGE_DEFAULT,
-      title,
-    }: { limit?: number; page?: number; title?: string } = {},
-  ): Promise<PaginatedTaskSummaryType> {
+      query = null,
+      sortOrder = 'desc',
+    } = pagination;
     const where = {
       active: true,
       OR: [{ userId }, { assignees: { some: { userId } } }],
-      ...(title && { title: { contains: title, mode: 'insensitive' as const } }),
+      ...(query && { title: { contains: query, mode: 'insensitive' as const } }),
     };
     const [total, tasks] = await this.prisma.$transaction([
       this.prisma.task.count({ where }),
@@ -109,16 +99,16 @@ export class TasksService {
         take: limit,
         where,
         select: DEFAULT_TASK_SELECT,
-        orderBy: [{ createdAt: 'desc' }],
+        orderBy: [{ createdAt: sortOrder }],
       }),
     ]);
     return {
-      tasks: tasks.map((task) => this.toTaskSummaryResponse(task)),
+      tasks: tasks.map((task) => this.toTaskListItemResponse(task)),
       meta: paginationMeta(total, page, limit),
     };
   }
 
-  async findOne(userId: User['id'], id: Task['id']): Promise<TaskType> {
+  async findOne(userId: User['id'], id: Task['id']): Promise<TaskDetailType> {
     const task = await this.prisma.task.findFirst({
       where: {
         id,
@@ -139,7 +129,7 @@ export class TasksService {
     id: Task['id'],
     userId: User['id'],
     input: Partial<CreateTaskInput>,
-  ): Promise<TaskType> {
+  ): Promise<TaskDetailType> {
     const existingTask = await this.prisma.task.findUniqueOrThrow({
       where: { id },
       select: DEFAULT_TASK_SELECT,
@@ -191,7 +181,7 @@ export class TasksService {
     id: Task['id'],
     userId: User['id'],
     input: UpdateTaskStatusInput,
-  ): Promise<TaskType> {
+  ): Promise<TaskDetailType> {
     const userTask = await this.prisma.task.findUniqueOrThrow({
       where: { id },
       select: { statusId: true, ...DEFAULT_TASK_SELECT },
@@ -243,7 +233,7 @@ export class TasksService {
     id: Task['id'],
     userId: User['id'],
     input: UpdateTaskCategoryInput,
-  ): Promise<TaskType> {
+  ): Promise<TaskDetailType> {
     const userTask = await this.prisma.task.findUniqueOrThrow({
       where: { id },
       select: { categoryId: true, ...DEFAULT_TASK_SELECT },
@@ -291,7 +281,7 @@ export class TasksService {
     }
   }
 
-  async remove(id: Task['id']): Promise<TaskType> {
+  async remove(id: Task['id']): Promise<TaskDetailType> {
     const userTask = await this.prisma.task.findUniqueOrThrow({
       where: {
         id,
@@ -337,7 +327,7 @@ export class TasksService {
     }
   }
 
-  private toTaskResponse(task: TaskWithRelations, currentUserId: User['id']): TaskType {
+  private toTaskResponse(task: TaskWithRelations, currentUserId: User['id']): TaskDetailType {
     return {
       id: task.id,
       title: task.title,
@@ -348,11 +338,10 @@ export class TasksService {
       status: task.status,
       category: task.category,
       isOwner: task.userId === currentUserId,
-      taskAssignees: task.assignees.map(({ user }) => user),
     };
   }
 
-  private toTaskSummaryResponse(task: TaskWithRelations): TaskSummaryType {
+  private toTaskListItemResponse(task: TaskWithRelations): TaskListItemType {
     return {
       id: task.id,
       title: task.title,

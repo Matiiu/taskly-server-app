@@ -13,6 +13,7 @@ import { PaginatedCommentReplyType } from '@/comments/entities/paginated-comment
 import { CommentActionType } from '@/comments/entities/comment-action.type';
 import { CommentReplyActionType } from '@/comments/entities/comment-reply-action.type';
 import type { Comment, CommentReply, Task, User } from 'generated/prisma/client';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Resolver()
 @UseGuards(JwtAuthGuard)
@@ -23,20 +24,20 @@ export class CommentsResolver {
   findMyTaskComments(
     @CurrentUser('sub') userId: User['id'],
     @Args('taskId', { type: () => String }) taskId: Task['id'],
-    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
-    @Args('page', { type: () => Int, nullable: true }) page?: number,
+    @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
+    pagination?: PaginationArgsInput,
   ): Promise<PaginatedCommentType> {
-    return this.commentsService.findManyByTask(userId, taskId, { limit, page });
+    return this.commentsService.findManyByTask(userId, taskId, pagination);
   }
 
   @Query(() => PaginatedCommentReplyType, { name: 'myCommentReplies' })
   findMyCommentReplies(
     @CurrentUser('sub') userId: User['id'],
     @Args('commentId', { type: () => String }) commentId: Comment['id'],
-    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
-    @Args('page', { type: () => Int, nullable: true }) page?: number,
+    @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
+    pagination?: PaginationArgsInput,
   ): Promise<PaginatedCommentReplyType> {
-    return this.commentsService.findManyRepliesByComment(userId, commentId, { limit, page });
+    return this.commentsService.findManyRepliesByComment(userId, commentId, pagination);
   }
 
   @Mutation(() => CommentActionType, { name: 'createMyTaskComment' })

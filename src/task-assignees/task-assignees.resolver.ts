@@ -1,13 +1,14 @@
-import { Resolver, Mutation, Query, Args } from '@nestjs/graphql';
+import { Resolver, Mutation, Query, Args, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { CurrentUser } from '@/auth/decorators/current-user.decorator';
 import { AddTaskAssigneeInput } from '@/task-assignees/dto/add-task-assignee.input';
 import { TaskAssigneeActionType } from '@/task-assignees/entities/task-assignee-action.type';
-import { TaskAssigneeType } from '@/task-assignees/entities/task-assignee.type';
+import { PaginatedTaskAssigneesType } from '@/task-assignees/entities/paginated-task-assignees.type';
 import { TaskAssigneesService } from '@/task-assignees/task-assignees.service';
 import type { Task, User } from 'generated/prisma/client';
+import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
 @Resolver()
 @UseGuards(JwtAuthGuard)
@@ -27,13 +28,14 @@ export class TaskAssigneesResolver {
     };
   }
 
-  @Query(() => [TaskAssigneeType], { name: 'myTaskAssignees' })
+  @Query(() => PaginatedTaskAssigneesType, { name: 'myTaskAssignees' })
   findMyTaskAssignees(
     @CurrentUser('sub') userId: User['id'],
     @Args('taskId', { type: () => String }) taskId: Task['id'],
-    @Args('query', { type: () => String, nullable: true }) query?: string,
-  ): Promise<TaskAssigneeType[]> {
-    return this.taskAssigneesService.findMany(userId, taskId, query);
+    @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
+    pagination?: PaginationArgsInput,
+  ): Promise<PaginatedTaskAssigneesType> {
+    return this.taskAssigneesService.findMany(userId, taskId, pagination);
   }
 
   @Mutation(() => TaskAssigneeActionType, { name: 'removeMyTaskAssignee' })
