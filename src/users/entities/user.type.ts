@@ -1,6 +1,6 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 import type { User } from 'generated/prisma/client';
-import { DocumentType } from 'generated/prisma/enums';
+import { DocumentType, UserRole } from 'generated/prisma/enums';
 
 @ObjectType()
 export class UserType implements Partial<User> {
@@ -12,6 +12,9 @@ export class UserType implements Partial<User> {
 
   @Field(() => String)
   lastName: string;
+
+  @Field(() => UserRole)
+  role: UserRole;
 
   @Field(() => DocumentType)
   documentType: DocumentType;

@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import { EVENTS } from '@/common/constants/events.constant';
+import { EmitAuditLogInput } from '../types/audit-payload.types';
 
 describe('AppEventEmitterService', () => {
   let service: AppEventEmitterService;
@@ -12,10 +13,7 @@ describe('AppEventEmitterService', () => {
     eventEmitter = { emit: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AppEventEmitterService,
-        { provide: EventEmitter2, useValue: eventEmitter },
-      ],
+      providers: [AppEventEmitterService, { provide: EventEmitter2, useValue: eventEmitter }],
     }).compile();
 
     service = module.get<AppEventEmitterService>(AppEventEmitterService);
@@ -37,8 +35,6 @@ describe('AppEventEmitterService', () => {
         entityId: 'e1',
         entity: 'Task' as never,
         description: 'Task created',
-        before: null,
-        after: null,
       };
 
       service.emitAuditLog(input);

@@ -19,6 +19,7 @@ const config: Config = {
     '!**/*.dto.ts',
     '!**/*.input.ts',
     '!**/*.entity.ts',
+    '!entities',
     '!**/*.type.ts',
     '!**/*.enum.ts',
     '!**/*.interface.ts',

@@ -1,7 +1,18 @@
 import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
 
-import { defineConfig } from 'prisma/config';
+const envFileMap: Record<string, string> = {
+  production: '.env.production',
+  debug: '.env.local',
+  development: '.env.local',
+  test: '.env.test',
+};
+
+const nodeEnv = process.env['NODE_ENV'] ?? 'development';
+const envFile = envFileMap[nodeEnv] ?? '.env.local';
+
+dotenv.config({ path: envFile });
+
+import { defineConfig, env } from 'prisma/config';
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -9,6 +20,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: process.env['DATABASE_URL'],
+    url: env('DATABASE_URL'),
   },
 });

@@ -11,7 +11,12 @@ import { createAppEventEmitterMock } from '@/common/testing/mocks/app-event-emit
 import { createStatusesServiceMock } from '@/common/testing/mocks/statuses-service.mock';
 import { createCategoriesServiceMock } from '@/common/testing/mocks/categories-service.mock';
 import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';
-import { buildStatus, buildCategory, buildTaskRow } from '@/common/testing/factories/domain.factory';
+import {
+  buildStatus,
+  buildCategory,
+  buildTaskRow,
+} from '@/common/testing/factories/domain.factory';
+import { SortOrder } from '@/common/enums/pagination.enum';
 
 let prisma: ReturnType<typeof createPrismaMock>;
 let appEventEmitter: ReturnType<typeof createAppEventEmitterMock>;
@@ -63,7 +68,9 @@ describe('TasksService', () => {
         isOwner: true,
       });
       expect(prisma.task.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ title: task.title, userId: task.userId }) as unknown }),
+        expect.objectContaining({
+          data: expect.objectContaining({ title: task.title, userId: task.userId }) as unknown,
+        }),
       );
       expect(appEventEmitter.emitAuditLog).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'CREATE_TASK', entity: 'Task', entityId: task.id }),
@@ -74,7 +81,9 @@ describe('TasksService', () => {
       jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
       prisma.task.create.mockRejectedValue(new Error('DB error'));
 
-      await expect(service.create('user-1', { title: 'Test' })).rejects.toThrow(BadRequestException);
+      await expect(service.create('user-1', { title: 'Test' })).rejects.toThrow(
+        BadRequestException,
+      );
       expect(appEventEmitter.emitAuditLog).not.toHaveBeenCalled();
     });
   });
@@ -121,7 +130,7 @@ describe('TasksService', () => {
       prisma.task.count.mockResolvedValue(0);
       prisma.task.findMany.mockResolvedValue([]);
 
-      await service.findMany('user-1', { page: 2, limit: 5, sortOrder: 'asc' });
+      await service.findMany('user-1', { page: 2, limit: 5, sortOrder: SortOrder.ASC });
 
       expect(prisma.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 5, take: 5, orderBy: [{ createdAt: 'asc' }] }),
@@ -176,7 +185,9 @@ describe('TasksService', () => {
       jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
       prisma.task.update.mockRejectedValue(new Error('DB error'));
 
-      await expect(service.update('task-1', 'user-1', { title: 'X' })).rejects.toThrow(BadRequestException);
+      await expect(service.update('task-1', 'user-1', { title: 'X' })).rejects.toThrow(
+        BadRequestException,
+      );
       expect(appEventEmitter.emitAuditLog).not.toHaveBeenCalled();
     });
   });
@@ -189,7 +200,6 @@ describe('TasksService', () => {
       statusesService.findByIdOrNameOrCreate.mockResolvedValue(status);
 
       const result = await service.updateStatus(task.id, task.userId, { name: status.name });
-
       expect(prisma.task.update).not.toHaveBeenCalled();
       expect(result.status?.id).toBe(status.id);
     });
@@ -197,8 +207,12 @@ describe('TasksService', () => {
     it('updates the task status, emits an audit log, and returns the response', async () => {
       const oldStatus = buildStatus({ id: 'old-status' });
       const newStatus = buildStatus({ id: 'new-status', name: 'Done' });
-      const task = buildTaskRow({ statusId: oldStatus.id });
-      const updatedTask = buildTaskRow({ status: { id: newStatus.id, name: newStatus.name, color: newStatus.color } });
+      const task = buildTaskRow({
+        status: { id: oldStatus.id, name: oldStatus.name, color: oldStatus.color },
+      });
+      const updatedTask = buildTaskRow({
+        status: { id: newStatus.id, name: newStatus.name, color: newStatus.color },
+      });
       prisma.task.findUniqueOrThrow.mockResolvedValue(task);
       statusesService.findByIdOrNameOrCreate.mockResolvedValue(newStatus);
       prisma.task.update.mockResolvedValue(updatedTask);
@@ -216,14 +230,18 @@ describe('TasksService', () => {
 
     it('throws BadRequestException when the DB update fails', async () => {
       const oldStatus = buildStatus({ id: 'old-status' });
-      const newStatus = buildStatus({ id: 'new-status' });
-      const task = buildTaskRow({ statusId: oldStatus.id });
+      const newStatus = buildStatus({ id: 'new-status', name: 'Done' });
+      const task = buildTaskRow({
+        status: { id: oldStatus.id, name: oldStatus.name, color: oldStatus.color },
+      });
       prisma.task.findUniqueOrThrow.mockResolvedValue(task);
       statusesService.findByIdOrNameOrCreate.mockResolvedValue(newStatus);
       jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
       prisma.task.update.mockRejectedValue(new Error('DB error'));
 
-      await expect(service.updateStatus(task.id, task.userId, { name: 'Done' })).rejects.toThrow(BadRequestException);
+      await expect(service.updateStatus(task.id, task.userId, { name: 'Done' })).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -243,8 +261,12 @@ describe('TasksService', () => {
     it('updates the task category, emits an audit log, and returns the response', async () => {
       const oldCat = buildCategory({ id: 'old-cat' });
       const newCat = buildCategory({ id: 'new-cat', name: 'Personal' });
-      const task = buildTaskRow({ categoryId: oldCat.id });
-      const updatedTask = buildTaskRow({ category: { id: newCat.id, name: newCat.name, color: newCat.color } });
+      const task = buildTaskRow({
+        category: { id: oldCat.id, name: oldCat.name, color: oldCat.color },
+      });
+      const updatedTask = buildTaskRow({
+        category: { id: newCat.id, name: newCat.name, color: newCat.color },
+      });
       prisma.task.findUniqueOrThrow.mockResolvedValue(task);
       categoriesService.findByIdOrNameOrCreate.mockResolvedValue(newCat);
       prisma.task.update.mockResolvedValue(updatedTask);
@@ -259,20 +281,27 @@ describe('TasksService', () => {
 
     it('throws BadRequestException when the DB update fails', async () => {
       const oldCat = buildCategory({ id: 'old-cat' });
-      const newCat = buildCategory({ id: 'new-cat' });
-      const task = buildTaskRow({ categoryId: oldCat.id });
+      const newCat = buildCategory({ id: 'new-cat', name: 'Personal' });
+      const task = buildTaskRow({
+        category: { id: oldCat.id, name: oldCat.name, color: oldCat.color },
+      });
       prisma.task.findUniqueOrThrow.mockResolvedValue(task);
       categoriesService.findByIdOrNameOrCreate.mockResolvedValue(newCat);
       jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
       prisma.task.update.mockRejectedValue(new Error('DB error'));
 
-      await expect(service.updateCategory(task.id, task.userId, { name: 'Personal' })).rejects.toThrow(BadRequestException);
+      await expect(
+        service.updateCategory(task.id, task.userId, { name: 'Personal' }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('remove', () => {
     it('soft-deletes the task, emits an audit log, and returns the mapped response', async () => {
-      const task = buildTaskRow();
+      const task = buildTaskRow({
+        category: { id: 'cat-1', name: 'Work', color: 'blue' },
+        status: { id: 'status-1', name: 'In Progress', color: 'yellow' },
+      });
       const removed = buildTaskRow({ active: false } as never);
       prisma.task.findUniqueOrThrow.mockResolvedValue(task);
       prisma.task.update.mockResolvedValue(removed);

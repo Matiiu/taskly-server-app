@@ -60,7 +60,7 @@ export class AuthService {
         },
       });
 
-      const user = this.usersService.createResponse(result);
+      const user = this.usersService.toUserType(result);
       const [token] = await Promise.all([
         this.generateToken({ userId: user.id, userCode: user.code }),
         this.statusesService.createDefaultStatuses(user.id),
@@ -103,7 +103,7 @@ export class AuthService {
       throw new BadRequestException('Email or password is incorrect');
     }
     const token = await this.generateToken({ userId: user.id, userCode: user.code });
-    const responseUser = this.usersService.createResponse(user);
+    const responseUser = this.usersService.toUserType(user);
 
     this.appEventEmitter.emitAuditLog({
       userId: user.id,
@@ -132,7 +132,7 @@ export class AuthService {
     if (!user) {
       throw new BadRequestException('User not found');
     }
-    const responseUser = this.usersService.createResponse(user);
+    const responseUser = this.usersService.toUserType(user);
 
     await this.prisma.revokedToken.upsert({
       where: { jti },
@@ -179,7 +179,7 @@ export class AuthService {
       throw new BadRequestException('New password must be different from the current password');
     }
 
-    const responseUser = this.usersService.createResponse(user);
+    const responseUser = this.usersService.toUserType(user);
 
     this.appEventEmitter.emitAuditLog({
       userId: user.id,

@@ -55,6 +55,8 @@ export const buildTaskRow = (
     dueDate: Date | null;
     createdAt: Date;
     updatedAt: Date;
+    statusId: string | null;
+    categoryId: string | null;
     status: { id: string; name: string; color: string | null } | null;
     category: { id: string; name: string; color: string | null } | null;
   }> = {},
@@ -66,6 +68,8 @@ export const buildTaskRow = (
   dueDate: new Date('2024-01-10'),
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
+  statusId: overrides.status?.id ?? null,
+  categoryId: overrides.category?.id ?? null,
   status: { id: 'status-id-1', name: 'Pending', color: '#f59e0b' },
   category: { id: 'category-id-1', name: 'Work', color: '#3366ff' },
   ...overrides,

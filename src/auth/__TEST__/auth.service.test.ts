@@ -73,7 +73,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(null) // email check
         .mockResolvedValueOnce(null); // code uniqueness check
       prismaMock.user.create.mockResolvedValue(user);
-      usersServiceMock.createResponse.mockReturnValue(userType);
+      usersServiceMock.toUserType.mockReturnValue(userType);
 
       jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue('hashed-password');
 
@@ -96,7 +96,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(null) // email check
         .mockResolvedValueOnce(null); // code uniqueness check (ensureCodeIsAvailable → codeExists)
       prismaMock.user.create.mockResolvedValue(user);
-      usersServiceMock.createResponse.mockReturnValue(userType);
+      usersServiceMock.toUserType.mockReturnValue(userType);
 
       jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue('hashed-password');
 
@@ -161,7 +161,7 @@ describe('AuthService', () => {
       const userType = buildUserType(user);
 
       prismaMock.user.findUnique.mockResolvedValue(user);
-      usersServiceMock.createResponse.mockReturnValue(userType);
+      usersServiceMock.toUserType.mockReturnValue(userType);
       jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
 
       const result = await service.signIn(signInInput);
@@ -201,7 +201,7 @@ describe('AuthService', () => {
       const userType = buildUserType(user);
 
       prismaMock.user.findUnique.mockResolvedValue(user);
-      usersServiceMock.createResponse.mockReturnValue(userType);
+      usersServiceMock.toUserType.mockReturnValue(userType);
       prismaMock.revokedToken.upsert.mockResolvedValue({});
 
       await expect(service.logout(logoutInput)).resolves.toBeUndefined();
@@ -241,7 +241,7 @@ describe('AuthService', () => {
 
       prismaMock.user.findUnique.mockResolvedValue(user);
       prismaMock.user.update.mockResolvedValue({ ...user, password: 'new-hashed' });
-      usersServiceMock.createResponse.mockReturnValue(userType);
+      usersServiceMock.toUserType.mockReturnValue(userType);
 
       jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue('new-hashed');
       // new password is different from current

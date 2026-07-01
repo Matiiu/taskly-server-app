@@ -204,11 +204,11 @@ describe('UsersService', () => {
     });
   });
 
-  describe('createResponse', () => {
+  describe('toUserType', () => {
     it('maps a user entity to the response type', () => {
       const user = buildUser();
 
-      expect(service.createResponse(user)).toEqual(buildUserType(user));
+      expect(service.toUserType(user)).toEqual(buildUserType(user));
     });
   });
 });

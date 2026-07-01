@@ -54,14 +54,14 @@ export class UsersService {
         where,
       }),
     ]);
-    const users = usersResponse.map((user) => this.createResponse(user));
+    const users = usersResponse.map((user) => this.toUserType(user));
     return { users, meta: paginationMeta(total, page, limit) };
   }
 
   async findByCode(code: string): Promise<UserType> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { code } });
 
-    return this.createResponse(user);
+    return this.toUserType(user);
   }
 
   async update(id: User['id'], input: UpdateUserInput): Promise<UserType> {
@@ -104,7 +104,7 @@ export class UsersService {
         },
       });
 
-      const responseUser = this.createResponse(user);
+      const responseUser = this.toUserType(user);
 
       this.eventEmitter.emitAuditLog({
         userId: existingUser.id,
@@ -143,11 +143,12 @@ export class UsersService {
     }
   }
 
-  createResponse(user: User): UserType {
+  toUserType(user: User): UserType {
     return {
       id: user.id,
       name: user.name,
       lastName: user.lastName,
+      role: user.role,
       documentType: user.documentType,
       documentNumber: user.documentNumber,
       email: user.email,

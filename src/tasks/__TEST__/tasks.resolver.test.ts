@@ -1,7 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { CurrentUserPayload } from '@/auth/types/current-user-payload.type';
+import { JwtPayload as CurrentUserPayload } from '@/auth/types/auth.type';
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';
 import { buildCategory, buildStatus, buildTask } from '@/common/testing/factories/domain.factory';
@@ -9,6 +9,8 @@ import { createTasksServiceMock } from '@/common/testing/mocks/tasks-service.moc
 import { TasksResolver } from '@/tasks/tasks.resolver';
 import { TasksService } from '@/tasks/tasks.service';
 import { TaskExistsGuard } from '@/tasks/guards/task-exists.guard';
+import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';
+import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 
 describe('TasksResolver', () => {
   let resolver: TasksResolver;
@@ -16,7 +18,7 @@ describe('TasksResolver', () => {
 
   const userPayload: CurrentUserPayload = {
     sub: 'user-id-1',
-    email: 'john@example.com',
+    code: 'user-code-1',
     jti: 'jti-1',
   };
 
@@ -94,7 +96,7 @@ describe('TasksResolver', () => {
 
   it('updateMyStatus formats message with status name', async () => {
     const task = { ...buildTask(), status: buildStatus({ name: 'Done' }) };
-    const input = { statusId: 'status-id-2' };
+    const input: UpdateTaskStatusInput = { id: 'status-id-2', name: 'Done' };
     tasksServiceMock.updateStatus.mockResolvedValue(task);
 
     const result = await resolver.updateMyStatus(userPayload.sub, task.id, input);
@@ -108,7 +110,7 @@ describe('TasksResolver', () => {
 
   it('updateMyCategory formats message with category name', async () => {
     const task = { ...buildTask(), category: buildCategory({ name: 'Personal' }) };
-    const input = { categoryId: 'category-id-2' };
+    const input: UpdateTaskCategoryInput = { id: 'category-id-2', name: 'Personal' };
     tasksServiceMock.updateCategory.mockResolvedValue(task);
 
     const result = await resolver.updateMyCategory(userPayload.sub, task.id, input);

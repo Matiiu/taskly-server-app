@@ -12,6 +12,11 @@ datasource db {
 // Enums
 // ----------------------------
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
 enum AuditAction {
   REGISTER_USER
   LOGIN_USER
@@ -84,6 +89,7 @@ model User {
   id        String   @id @default(uuid())
   name      String
   lastName  String
+  role UserRole @default(USER)
   documentType DocumentType
   documentNumber String @unique
   code      String   @unique
