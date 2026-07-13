@@ -3,7 +3,7 @@ import { Injectable, Logger, BadRequestException, NotFoundException } from '@nes
 import { PrismaService } from '@/prisma/prisma.service';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import type { User, Status } from 'generated/prisma/client';
-import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
+import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constants';
 import { paginationMeta } from '@/common/utils/pagination.util';
 import { StatusType } from './entities/status.type';
 import { PaginatedStatusesType } from './entities/paginated-statuses.type';

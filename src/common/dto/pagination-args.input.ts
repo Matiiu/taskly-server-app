@@ -1,7 +1,7 @@
 import { InputType, Field, Int } from '@nestjs/graphql';
 import { IsInt, IsOptional, IsString, IsEnum, Min, Max, MaxLength } from 'class-validator';
 
-import { LIMIT_DEFAULT, PAGE_DEFAULT } from '@/common/constants/pagination.constant';
+import { LIMIT_DEFAULT, PAGE_DEFAULT } from '@/common/constants/pagination.constants';
 
 import { SortOrder } from '@/common/enums/pagination.enum';
 

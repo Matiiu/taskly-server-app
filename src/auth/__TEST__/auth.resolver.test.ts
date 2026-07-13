@@ -96,15 +96,13 @@ describe('AuthResolver', () => {
   describe('suggestCodes', () => {
     it('should return the suggested codes from the service', async () => {
       const codes = ['@john_doe', '@doe_john', '@john_1234'];
+      const input = { name: 'John', lastName: 'Doe' };
 
       authServiceMock.suggestCodes.mockResolvedValue(codes);
 
-      const result = await resolver.suggestCodes('John', 'Doe');
+      const result = await resolver.suggestCodes(input);
 
-      expect(authServiceMock.suggestCodes).toHaveBeenCalledWith({
-        name: 'John',
-        lastName: 'Doe',
-      });
+      expect(authServiceMock.suggestCodes).toHaveBeenCalledWith(input);
       expect(result).toEqual(codes);
     });
   });

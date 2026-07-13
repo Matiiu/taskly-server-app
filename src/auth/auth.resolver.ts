@@ -6,6 +6,7 @@ import { RegisterInput } from '@/auth/dto/register.input';
 import { RegisterType } from '@/auth/entities/register.type';
 import { RecoverPasswordInput } from '@/auth/dto/recover-password.input';
 import { SignInInput } from '@/auth/dto/sign-in.input';
+import { SuggestCodesInput } from '@/auth/dto/suggest-codes.input';
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { CurrentUser } from '@/auth/decorators/current-user.decorator';
 
@@ -46,11 +47,8 @@ export class AuthResolver {
   }
 
   @Query(() => [String], { name: 'suggestedCodes' })
-  async suggestCodes(
-    @Args('name') name: string,
-    @Args('lastName') lastName: string,
-  ): Promise<string[]> {
-    return this.authService.suggestCodes({ name, lastName });
+  async suggestCodes(@Args('input') input: SuggestCodesInput): Promise<string[]> {
+    return this.authService.suggestCodes(input);
   }
 
   @Mutation(() => Boolean, { name: 'logout' })

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { CreateAuditLogInput } from '@/audit-log/dto/create-audit-log.input';
-import { EVENTS } from '@/common/constants/events.constant';
+import { EVENTS } from '@/common/constants/events.constants';
 
 @Injectable()
 export class AuditLogListener {

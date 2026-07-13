@@ -10,7 +10,7 @@ import { CommentType } from '@/comments/entities/comment.type';
 import { CommentReplyType } from '@/comments/entities/comment-reply.type';
 import { PaginatedCommentType } from '@/comments/entities/paginated-comment.type';
 import { PaginatedCommentReplyType } from '@/comments/entities/paginated-comment-reply.type';
-import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
+import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constants';
 import { paginationMeta } from '@/common/utils/pagination.util';
 import type { Prisma, Comment, CommentReply, Task, User } from 'generated/prisma/client';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';

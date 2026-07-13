@@ -5,7 +5,7 @@ import { AppEventEmitterService } from '@/common/event-emitter.service';
 import { AddTaskAssigneeInput } from '@/task-assignees/dto/add-task-assignee.input';
 import { TaskAssigneeType } from '@/task-assignees/entities/task-assignee.type';
 import { PaginatedTaskAssigneesType } from '@/task-assignees/entities/paginated-task-assignees.type';
-import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
+import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constants';
 import { paginationMeta } from '@/common/utils/pagination.util';
 import type { Task, User } from 'generated/prisma/client';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';

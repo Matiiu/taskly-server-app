@@ -5,7 +5,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { UserType } from '@/users/entities/user.type';
 import { PaginatedUsersType } from '@/users/entities/paginated-users.type';
 import { paginationMeta } from '@/common/utils/pagination.util';
-import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
+import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constants';
 import { UpdateUserInput } from '@/users/dto/update-user.type';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';

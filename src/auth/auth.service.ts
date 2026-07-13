@@ -1,5 +1,5 @@
 import { Injectable, ConflictException, BadRequestException, Logger } from '@nestjs/common';
-import { randomBytes, randomInt, randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 
 import { PrismaService } from '@/prisma/prisma.service';
@@ -10,10 +10,14 @@ import { RegisterType } from '@/auth/entities/register.type';
 import { UsersService } from '@/users/users.service';
 import { User } from 'generated/prisma/client';
 import { hashPassword, comparePassword } from '@/common/utils/hash.util';
-import { MIN_CODE_LENGTH, MAX_CODE_LENGTH } from '@/auth/constants/auth.constant';
 import { StatusesService } from '@/statuses/statuses.service';
 import { RecoverPasswordInput } from '@/auth/dto/recover-password.input';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
+import {
+  generateRandomNumericSuffix,
+  normalizeCodeToken,
+  toValidCodeLength,
+} from '@/common/utils/code-suggestion.util';
 
 @Injectable()
 export class AuthService {
@@ -206,8 +210,8 @@ export class AuthService {
   }
 
   async suggestCodes({ name, lastName }: { name: string; lastName: string }): Promise<string[]> {
-    const normalizedName = this.normalizeCodeToken(name) || 'user';
-    const normalizedLastName = this.normalizeCodeToken(lastName) || 'account';
+    const normalizedName = normalizeCodeToken(name) || 'user';
+    const normalizedLastName = normalizeCodeToken(lastName) || 'account';
     const seeds = [
       `${normalizedName}_${normalizedLastName}`,
       `${normalizedLastName}_${normalizedName}`,
@@ -222,7 +226,7 @@ export class AuthService {
     }
 
     while (suggestions.length < AuthService.SUGGESTION_BATCH_SIZE) {
-      const randomSuffix = this.generateRandomNumericSuffix(normalizedName);
+      const randomSuffix = generateRandomNumericSuffix(normalizedName);
       const baseName = suggestions.length % 2 === 0 ? normalizedName : normalizedLastName;
       const suggestion = await this.findAvailableCode(
         `${baseName}_${randomSuffix}`,
@@ -236,7 +240,7 @@ export class AuthService {
   }
 
   private async ensureCodeIsAvailable(value: string): Promise<string> {
-    const code = this.toValidCodeLength(value);
+    const code = toValidCodeLength(value);
     const exists = await this.codeExists(code);
 
     if (exists) {
@@ -262,7 +266,7 @@ export class AuthService {
 
   private async generateUniqueCode(factory: () => string): Promise<string> {
     for (let attempt = 0; attempt < 20; attempt++) {
-      const code = this.toValidCodeLength(factory());
+      const code = toValidCodeLength(factory());
 
       if (!(await this.codeExists(code))) {
         return code;
@@ -276,8 +280,8 @@ export class AuthService {
     let attempt = 0;
 
     while (attempt < 20) {
-      const candidate = this.toValidCodeLength(
-        attempt === 0 ? seed : `${seed}_${this.generateRandomNumericSuffix(seed)}`,
+      const candidate = toValidCodeLength(
+        attempt === 0 ? seed : `${seed}_${generateRandomNumericSuffix(seed)}`,
       );
 
       if (!exclude.has(candidate) && !(await this.codeExists(candidate))) {
@@ -297,33 +301,5 @@ export class AuthService {
     });
 
     return Boolean(existingCode);
-  }
-
-  private normalizeCodeToken(value: string): string {
-    return value
-      .normalize('NFD')
-      .replace(/[^\p{L}\p{N}_]/gu, '')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-  }
-
-  private toValidCodeLength(value: string): string {
-    const normalized = value.replace(/[^\p{L}\p{N}_]/gu, '').toLowerCase();
-    const maxBodyLength = MAX_CODE_LENGTH - 1;
-    const minBodyLength = MIN_CODE_LENGTH - 1;
-    const truncated = normalized.slice(0, maxBodyLength);
-    const padded =
-      truncated.length >= minBodyLength ? truncated : truncated.padEnd(minBodyLength, '0');
-
-    return `@${padded}`;
-  }
-
-  private generateRandomNumericSuffix(normalizedName: string): string {
-    const maxDigits = Math.max(1, MAX_CODE_LENGTH - normalizedName.length - 2);
-    const digitCount = Math.min(6, maxDigits);
-    const min = 10 ** Math.max(0, digitCount - 1);
-    const max = 10 ** digitCount - 1;
-
-    return String(randomInt(min, max + 1));
   }
 }

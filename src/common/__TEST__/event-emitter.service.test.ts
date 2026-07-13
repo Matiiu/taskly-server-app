@@ -2,8 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { AppEventEmitterService } from '@/common/event-emitter.service';
-import { EVENTS } from '@/common/constants/events.constant';
-import { EmitAuditLogInput } from '../types/audit-payload.types';
+import { EVENTS } from '@/common/constants/events.constants';
 
 describe('AppEventEmitterService', () => {
   let service: AppEventEmitterService;
@@ -21,9 +20,9 @@ describe('AppEventEmitterService', () => {
 
   describe('emit', () => {
     it('delegates to the underlying EventEmitter2', () => {
-      service.emit('some.event', { data: 'value' });
+      service.emit(EVENTS.AUDIT_LOG, { data: 'value' });
 
-      expect(eventEmitter.emit).toHaveBeenCalledWith('some.event', { data: 'value' });
+      expect(eventEmitter.emit).toHaveBeenCalledWith(EVENTS.AUDIT_LOG, { data: 'value' });
     });
   });
 

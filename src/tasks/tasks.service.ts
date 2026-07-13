@@ -7,7 +7,7 @@ import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';
 import { TaskDetailType } from '@/tasks/entities/task-detail.type';
 import type { Prisma, User, Task } from 'generated/prisma/client';
-import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constant';
+import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constants';
 import { paginationMeta } from '@/common/utils/pagination.util';
 import { PaginatedTaskSummaryType } from './entities/paginated-task-summary.type';
 import { StatusesService } from '@/statuses/statuses.service';

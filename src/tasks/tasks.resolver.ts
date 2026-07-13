@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Args, Query, Int } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator';
@@ -7,7 +7,7 @@ import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { CreateTaskInput } from '@/tasks/dto/create-task.input';
 import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';
-import { TaskActionType } from '@/tasks/entities/task-action-type';
+import { TaskActionType } from '@/tasks/entities/task-action.type';
 import { PaginatedTaskSummaryType } from '@/tasks/entities/paginated-task-summary.type';
 import { TaskDetailType } from '@/tasks/entities/task-detail.type';
 import { TaskExists } from '@/tasks/decorators/task-exists.decorator';
