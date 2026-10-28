@@ -223,9 +223,9 @@ describe('CommentsService', () => {
     it('throws NotFoundException when reply is not found', async () => {
       prisma.commentReply.findFirst.mockResolvedValue(null);
 
-      await expect(service.updateReply('user-1', 'missing', { content: 'Updated' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.updateReply('user-1', 'missing', { content: 'Updated' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('returns existing reply without update when content is unchanged', async () => {
@@ -284,7 +284,9 @@ describe('CommentsService', () => {
       jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
       prisma.commentReply.update.mockRejectedValue(new Error('DB error'));
 
-      await expect(service.removeReply('user-1', 'reply-id-1')).rejects.toThrow(BadRequestException);
+      await expect(service.removeReply('user-1', 'reply-id-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

@@ -6,7 +6,7 @@ export const buildCategory = (overrides: Partial<Category> = {}): Category => ({
   color: '#3366ff',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
-  userId: 'user-id-1',
+  workspaceId: 'workspace-id-1',
   ...overrides,
 });
 
@@ -16,7 +16,7 @@ export const buildStatus = (overrides: Partial<Status> = {}): Status => ({
   color: '#f59e0b',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
-  userId: 'user-id-1',
+  workspaceId: 'workspace-id-1',
   ...overrides,
 });
 
@@ -28,7 +28,7 @@ export const buildTask = (overrides: Partial<Task> = {}): Task => ({
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
   active: true,
-  userId: 'user-id-1',
+  createdById: 'user-id-1',
   categoryId: 'category-id-1',
   statusId: 'status-id-1',
   ...overrides,
@@ -49,7 +49,7 @@ export const buildComment = (overrides: Partial<Comment> = {}): Comment => ({
 export const buildTaskRow = (
   overrides: Partial<{
     id: string;
-    userId: string;
+    createdById: string;
     title: string;
     description: string | null;
     dueDate: Date | null;
@@ -62,7 +62,7 @@ export const buildTaskRow = (
   }> = {},
 ) => ({
   id: 'task-id-1',
-  userId: 'user-id-1',
+  createdById: 'user-id-1',
   title: 'Finish unit tests',
   description: 'Add resolver coverage',
   dueDate: new Date('2024-01-10'),
@@ -79,14 +79,16 @@ export const buildAssigneeType = (
   overrides: Partial<{
     id: string;
     name: string;
-    lastName: string;
+    firstSurname: string;
+    secondSurname: string | null;
     email: string;
     code: string;
   }> = {},
 ) => ({
   id: 'user-id-2',
   name: 'Jane',
-  lastName: 'Smith',
+  firstSurname: 'Smith',
+  secondSurname: null,
   email: 'jane@example.com',
   code: '@janesmith',
   ...overrides,
@@ -107,7 +109,8 @@ export const buildCommentReply = (overrides: Partial<CommentReply> = {}): Commen
 const buildCommentAuthor = () => ({
   id: 'user-id-1',
   name: 'John',
-  lastName: 'Doe',
+  firstSurname: 'Doe',
+  secondSurname: null,
   email: 'john@example.com',
   code: '@johndoe',
 });
@@ -122,7 +125,14 @@ export const buildCommentWithUser = (
     active: boolean;
     taskId: string;
     userId: string;
-    user: { id: string; name: string; lastName: string; email: string; code: string };
+    user: {
+      id: string;
+      name: string;
+      firstSurname: string;
+      secondSurname: string | null;
+      email: string;
+      code: string;
+    };
   }> = {},
 ) => ({
   id: 'comment-id-1',
@@ -147,7 +157,14 @@ export const buildCommentReplyWithUser = (
     active: boolean;
     commentId: string;
     userId: string;
-    user: { id: string; name: string; lastName: string; email: string; code: string };
+    user: {
+      id: string;
+      name: string;
+      firstSurname: string;
+      secondSurname: string | null;
+      email: string;
+      code: string;
+    };
   }> = {},
 ) => ({
   id: 'reply-id-1',

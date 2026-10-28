@@ -1,12 +1,11 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, InputType, ID } from '@nestjs/graphql';
 import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
-
 import type { Status } from 'generated/prisma/client';
 
 @InputType()
-export class UpdateTaskStatusInput implements Partial<Status> {
-  @Field(() => String, { nullable: true })
+export class UpdateTaskStatusInput {
+  @Field(() => ID, { nullable: true })
   @IsOptional()
   @IsString()
   @Transform(({ value }: { value?: string }) => value?.trim())
@@ -16,5 +15,5 @@ export class UpdateTaskStatusInput implements Partial<Status> {
   @IsNotEmpty()
   @IsString()
   @Transform(({ value }: { value: string }) => value.trim())
-  name: Status['name'];
+  name: string;
 }

@@ -1,31 +1,21 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-  HttpException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 
-import { PrismaService } from '@/prisma/prisma.service';
-import type { JwtPayload } from '@/auth/types/auth.type';
+import { TokenService } from '@/auth/token.service';
+import type { AuthenticatedRequest } from '@/auth/types/auth.type';
 
-type RequestWithUser = Request & {
-  user?: JwtPayload;
-};
-
+/**
+ * Verifies the Bearer token and stores the session and the user on the request
+ * (read them with @CurrentSession() and @CurrentUser()).
+ */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly tokenService: TokenService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const gqlContext = GqlExecutionContext.create(context);
-    const request = gqlContext.getContext<{ req?: RequestWithUser }>().req;
+    const request = gqlContext.getContext<{ req?: AuthenticatedRequest }>().req;
 
     if (!request) {
       throw new UnauthorizedException('Request not found');
@@ -37,46 +27,11 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing authorization token');
     }
 
-    try {
-      const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
+    const { session, user } = await this.tokenService.verify(token);
+    request.session = session;
+    request.user = user;
 
-      if (!payload?.jti) {
-        throw new UnauthorizedException('Invalid authorization token');
-      }
-
-      const revokedToken = await this.prisma.revokedToken.findFirst({
-        where: {
-          jti: payload.jti,
-          expiresAt: {
-            gt: new Date(),
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (revokedToken) {
-        throw new UnauthorizedException('Session ended. Please sign in again');
-      }
-
-      request.user = payload;
-      return true;
-    } catch (e) {
-      if (e instanceof HttpException) {
-        throw e;
-      }
-
-      if ((e as { name?: string })?.name === 'TokenExpiredError') {
-        throw new UnauthorizedException('Token expired. Please sign in again');
-      }
-
-      if ((e as { name?: string })?.name === 'JsonWebTokenError') {
-        throw new UnauthorizedException('Invalid authorization token');
-      }
-
-      throw new UnauthorizedException('Invalid or expired token');
-    }
+    return true;
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {

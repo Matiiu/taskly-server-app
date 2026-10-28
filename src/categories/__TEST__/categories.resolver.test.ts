@@ -2,12 +2,15 @@ import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { PolicyGuard } from '@/authorization/guards/policy.guard';
 import { CategoriesResolver } from '@/categories/categories.resolver';
 import { CategoriesService } from '@/categories/categories.service';
-import { CategoryExistsGuard } from '@/categories/guards/category-exists.guard';
 import { buildCategory } from '@/common/testing/factories/domain.factory';
 import { createCategoriesServiceMock } from '@/common/testing/mocks/categories-service.mock';
 import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';
+
+const WORKSPACE_ID = 'workspace-id-1';
+const USER_ID = 'user-id-1';
 
 describe('CategoriesResolver', () => {
   let resolver: CategoriesResolver;
@@ -25,72 +28,83 @@ describe('CategoriesResolver', () => {
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(CategoryExistsGuard)
+      .overrideGuard(PolicyGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
     resolver = module.get<CategoriesResolver>(CategoriesResolver);
   });
 
-  describe('findMyCategories', () => {
-    it('delegates to service and returns paginated categories', async () => {
-      const category = buildCategory();
-      const pagination = { page: 2, limit: 5, query: 'wo' };
+  describe('findMany', () => {
+    it('delegates to service with the workspace, pagination and search', async () => {
+      const pagination = { page: 2, limit: 5 };
       const expected = {
-        categories: [category],
+        categories: [buildCategory()],
         meta: createPaginationMetaMock({ page: 2, limit: 5 }),
       };
-
       categoriesServiceMock.findMany.mockResolvedValue(expected);
 
-      const result = await resolver.findMyCategories('user-id-1', pagination);
+      const result = await resolver.findMany(WORKSPACE_ID, pagination, 'wo');
 
       expect(result).toEqual(expected);
-      expect(categoriesServiceMock.findMany).toHaveBeenCalledWith('user-id-1', pagination);
+      expect(categoriesServiceMock.findMany).toHaveBeenCalledWith(WORKSPACE_ID, pagination, 'wo');
+    });
+
+    it('uses empty pagination and a null search by default', async () => {
+      categoriesServiceMock.findMany.mockResolvedValue({
+        categories: [],
+        meta: createPaginationMetaMock(),
+      });
+
+      await resolver.findMany(WORKSPACE_ID);
+
+      expect(categoriesServiceMock.findMany).toHaveBeenCalledWith(WORKSPACE_ID, {}, null);
     });
   });
 
   describe('updateColor', () => {
-    it('updates color and returns action message', async () => {
-      const category = buildCategory({ name: 'Personal', color: '#10b981' });
-      const input = { color: '#10b981' };
+    it('returns formatted action message', async () => {
+      const category = buildCategory({ name: 'Work', color: '#22c55e' });
       categoriesServiceMock.updateColor.mockResolvedValue(category);
 
-      const result = await resolver.updateColor('user-id-1', category.id, input);
+      const result = await resolver.updateColor(USER_ID, WORKSPACE_ID, category.id, {
+        color: '#22c55e',
+      });
 
-      expect(categoriesServiceMock.updateColor).toHaveBeenCalledWith(
-        'user-id-1',
-        category.id,
-        input,
-      );
       expect(result).toEqual({
         message: `Category ${category.name} color updated successfully`,
         category,
       });
+      expect(categoriesServiceMock.updateColor).toHaveBeenCalledWith(
+        WORKSPACE_ID,
+        USER_ID,
+        category.id,
+        { color: '#22c55e' },
+      );
     });
 
     it('propagates service errors', async () => {
-      const boom = new InternalServerErrorException('failed update');
+      const boom = new InternalServerErrorException('category update failed');
       categoriesServiceMock.updateColor.mockRejectedValue(boom);
 
       await expect(
-        resolver.updateColor('user-id-1', 'category-id-1', { color: '#000000' }),
+        resolver.updateColor(USER_ID, WORKSPACE_ID, 'category-id-1', { color: '#ef4444' }),
       ).rejects.toBe(boom);
     });
   });
 
-  describe('removeMyCategory', () => {
-    it('removes category and returns action message', async () => {
-      const category = buildCategory({ name: 'Errands' });
+  describe('remove', () => {
+    it('returns formatted action message', async () => {
+      const category = buildCategory({ name: 'Archived' });
       categoriesServiceMock.remove.mockResolvedValue(category);
 
-      const result = await resolver.removeMyCategory('user-id-1', category.id);
+      const result = await resolver.remove(USER_ID, WORKSPACE_ID, category.id);
 
-      expect(categoriesServiceMock.remove).toHaveBeenCalledWith('user-id-1', category.id);
       expect(result).toEqual({
         message: `Category ${category.name} removed successfully`,
         category,
       });
+      expect(categoriesServiceMock.remove).toHaveBeenCalledWith(WORKSPACE_ID, USER_ID, category.id);
     });
   });
 });

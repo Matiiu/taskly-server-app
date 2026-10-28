@@ -18,7 +18,8 @@ import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 const COMMENT_AUTHOR_SELECT = {
   id: true,
   name: true,
-  lastName: true,
+  firstSurname: true,
+  secondSurname: true,
   email: true,
   code: true,
 } satisfies Prisma.UserSelect;
@@ -223,7 +224,7 @@ export class CommentsService {
       where: {
         id: commentId,
         active: true,
-        OR: [{ userId }, { task: { userId, active: true } }],
+        OR: [{ userId }, { task: { createdById: userId, active: true } }],
         task: this.taskAccessWhere(userId),
       },
       select: COMMENT_SELECT,
@@ -410,7 +411,7 @@ export class CommentsService {
   private taskAccessWhere(userId: User['id']): Prisma.TaskWhereInput {
     return {
       active: true,
-      OR: [{ userId }, { assignees: { some: { userId } } }],
+      OR: [{ createdById: userId }, { assignees: { some: { userId } } }],
     };
   }
 

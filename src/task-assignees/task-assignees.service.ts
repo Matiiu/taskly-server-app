@@ -85,7 +85,8 @@ export class TaskAssigneesService {
           ? {
               OR: [
                 { name: { contains: query, mode: 'insensitive' as const } },
-                { lastName: { contains: query, mode: 'insensitive' as const } },
+                { firstSurname: { contains: query, mode: 'insensitive' as const } },
+                { secondSurname: { contains: query, mode: 'insensitive' as const } },
                 { email: { contains: query, mode: 'insensitive' as const } },
                 { code: { contains: query, mode: 'insensitive' as const } },
               ],
@@ -103,13 +104,18 @@ export class TaskAssigneesService {
             select: {
               id: true,
               name: true,
-              lastName: true,
+              firstSurname: true,
+              secondSurname: true,
               email: true,
               code: true,
             },
           },
         },
-        orderBy: [{ user: { name: sortOrder } }, { user: { lastName: sortOrder } }],
+        orderBy: [
+          { user: { name: sortOrder } },
+          { user: { firstSurname: sortOrder } },
+          { user: { secondSurname: sortOrder } },
+        ],
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -140,7 +146,8 @@ export class TaskAssigneesService {
           select: {
             id: true,
             name: true,
-            lastName: true,
+            firstSurname: true,
+            secondSurname: true,
             email: true,
             code: true,
           },
@@ -200,7 +207,7 @@ export class TaskAssigneesService {
     category: { id: string; name: string; color: string | null } | null;
   }> {
     const task = await this.prisma.task.findFirst({
-      where: { id: taskId, userId, active: true },
+      where: { id: taskId, createdById: userId, active: true },
       select: {
         id: true,
         title: true,
@@ -227,7 +234,8 @@ export class TaskAssigneesService {
       select: {
         id: true,
         name: true,
-        lastName: true,
+        firstSurname: true,
+        secondSurname: true,
         email: true,
         code: true,
       },

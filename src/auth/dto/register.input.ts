@@ -10,39 +10,43 @@ import {
   Matches,
 } from 'class-validator';
 import { DocumentType } from 'generated/prisma/enums';
-import type { User } from 'generated/prisma/client';
 import {
   MIN_CODE_LENGTH,
   MAX_CODE_LENGTH,
   MIN_PASSWORD_LENGTH,
   MAX_PASSWORD_LENGTH,
 } from '@/auth/constants/auth.constant';
-import { Transform } from 'class-transformer';
+import {
+  NormalizeName,
+  TrimToNull,
+  Trim,
+  ToLowerCase,
+} from '@/common/transforms/string.transforms';
 
 @InputType()
-export class RegisterInput implements Partial<User> {
+export class RegisterInput {
   @Field(() => String)
   @IsNotEmpty()
   @IsString()
-  @Transform(({ value }: { value: string }) => {
-    const trimmed = value.trim();
-    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-  })
+  @NormalizeName()
   name: string;
 
   @Field(() => String)
   @IsNotEmpty()
   @IsString()
-  @Transform(({ value }: { value: string }) => {
-    const trimmed = value.trim();
-    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-  })
-  lastName: string;
+  @NormalizeName()
+  firstSurname: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @NormalizeName()
+  secondSurname?: string | null;
 
   @Field(() => String)
   @IsNotEmpty()
   @IsEmail()
-  @Transform(({ value }: { value: string }) => value.trim().toLowerCase())
+  @Trim()
   email: string;
 
   @Field(() => String)
@@ -63,14 +67,14 @@ export class RegisterInput implements Partial<User> {
   @Field(() => DocumentType)
   @IsNotEmpty()
   @IsIn([...Object.values(DocumentType)], {
-    message: `documentType must be one of the following values: ${Object.values(DocumentType).join(', ')}`,
+    message: `documentType is not valid`,
   })
   documentType: DocumentType;
 
   @Field(() => String)
   @IsNotEmpty()
   @IsString()
-  @Transform(({ value }: { value: string }) => value.trim())
+  @Trim()
   documentNumber: string;
 
   @Field(() => String, { nullable: true })
@@ -84,17 +88,19 @@ export class RegisterInput implements Partial<User> {
     message: 'code must start with @ and contain only letters, numbers, and _',
   })
   @IsString()
-  @IsOptional()
-  @Transform(({ value }: { value: string }) => value?.toLowerCase() ?? null)
-  code?: string;
+  @IsNotEmpty()
+  @ToLowerCase()
+  code: string;
 
   @Field(() => String, { nullable: true })
   @IsOptional()
   @IsString()
+  @TrimToNull()
   phoneNumber?: string | null;
 
   @Field(() => String, { nullable: true })
   @IsOptional()
   @IsString()
+  @TrimToNull()
   phoneCountryCode?: string | null;
 }

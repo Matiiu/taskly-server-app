@@ -1,6 +1,11 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 
-import type { Prisma, User } from 'generated/prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UserType } from '@/users/entities/user.type';
 import { PaginatedUsersType } from '@/users/entities/paginated-users.type';
@@ -9,6 +14,12 @@ import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.const
 import { UpdateUserInput } from '@/users/dto/update-user.type';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
+import { UsersRepository } from '@/users/users.repository';
+import type { User } from 'generated/prisma/client';
+import type { SafeUser } from '@/users/types/users.type';
+import { toUserSnapshot } from '@/users/utils/user-snapshot.util';
+import { assertCanActOnUser } from '@/users/utils/user-access.util';
+import { isUniqueViolation } from '@/prisma/prisma.errors';
 
 @Injectable()
 export class UsersService {
@@ -16,138 +27,101 @@ export class UsersService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly usersRepo: UsersRepository,
     private readonly eventEmitter: AppEventEmitterService,
   ) {}
 
   async findMany(pagination: PaginationArgsInput = {}): Promise<PaginatedUsersType> {
-    const {
-      limit = LIMIT_DEFAULT,
-      page = PAGE_DEFAULT,
-      query = null,
-      sortOrder = 'desc',
-    } = pagination;
-    // Split the query into terms, trim whitespace, and filter out empty terms
-    const terms = query?.trim().split(/\s+/).filter(Boolean) ?? [];
-    const where: Prisma.UserWhereInput = {
-      active: true,
-      ...(terms.length
-        ? {
-            AND: terms.map((term) => ({
-              OR: [
-                { name: { contains: term, mode: 'insensitive' } },
-                { lastName: { contains: term, mode: 'insensitive' } },
-                { email: { contains: term, mode: 'insensitive' } },
-                { code: { contains: term, mode: 'insensitive' } },
-              ],
-            })),
-          }
-        : {}),
-    };
+    const { limit = LIMIT_DEFAULT, page = PAGE_DEFAULT, sortOrder = 'desc' } = pagination;
     const [usersResponse, total] = await this.prisma.$transaction([
       this.prisma.user.findMany({
         skip: (page - 1) * limit,
         take: limit,
-        where,
-        orderBy: [{ name: sortOrder }, { lastName: sortOrder }],
+        orderBy: [{ name: sortOrder }, { firstSurname: sortOrder }, { secondSurname: sortOrder }],
       }),
-      this.prisma.user.count({
-        where,
-      }),
+      this.prisma.user.count(),
     ]);
     const users = usersResponse.map((user) => this.toUserType(user));
     return { users, meta: paginationMeta(total, page, limit) };
   }
 
   async findByCode(code: string): Promise<UserType> {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { code } });
+    const user = await this.usersRepo.findByCode(code);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
 
     return this.toUserType(user);
   }
 
-  async update(id: User['id'], input: UpdateUserInput): Promise<UserType> {
-    const existingUser = await this.prisma.user.findUniqueOrThrow({ where: { id } });
+  /** Active user by id; 404 otherwise. */
+  async findByIdOrThrow(id: User['id']): Promise<SafeUser> {
+    const user = await this.usersRepo.findById(id);
 
-    // Validate Document Uniqueness
-    if (
-      (input.documentType && input.documentType !== existingUser.documentType) ||
-      (input.documentNumber && input.documentNumber !== existingUser.documentNumber)
-    ) {
-      const conflictingUser = await this.prisma.user.findFirst({
-        where: {
-          documentType: input.documentType || existingUser.documentType,
-          documentNumber: input.documentNumber || existingUser.documentNumber,
-          active: true,
-          id: { not: id },
-        },
-      });
-
-      if (conflictingUser) {
-        throw new BadRequestException(
-          `Another user with document ${input.documentType || existingUser.documentType} ${
-            input.documentNumber || existingUser.documentNumber
-          } already exists`,
-        );
-      }
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
-    try {
-      const user = await this.prisma.user.update({
-        where: { id },
-        data: {
-          name: input.name,
-          lastName: input.lastName,
-          documentType: input.documentType,
-          documentNumber: input.documentNumber,
-          email: input.email,
-          phoneNumber: input.phoneNumber,
-          phoneCountryCode: input.phoneCountryCode,
-        },
-      });
+    return user;
+  }
 
-      const responseUser = this.toUserType(user);
+  /**
+   * Updates the profile of `target`. `actor` is who makes the change:
+   * the user themselves (default) or an admin editing someone else.
+   */
+  async update(
+    target: SafeUser,
+    input: UpdateUserInput,
+    actor: SafeUser = target,
+  ): Promise<UserType> {
+    assertCanActOnUser(actor, target.id);
+
+    await this.assertDocumentAvailable(
+      input.documentType ?? target.documentType,
+      input.documentNumber ?? target.documentNumber,
+      target.id,
+    );
+
+    try {
+      const updatedUser = await this.usersRepo.update(target.id, {
+        name: input.name,
+        firstSurname: input.firstSurname,
+        secondSurname: input.secondSurname,
+        documentType: input.documentType,
+        documentNumber: input.documentNumber,
+        email: input.email,
+        phoneNumber: input.phoneNumber,
+        phoneCountryCode: input.phoneCountryCode,
+      });
 
       this.eventEmitter.emitAuditLog({
-        userId: existingUser.id,
+        userId: actor.id,
         action: 'UPDATE_USER',
-        entityId: existingUser.id,
+        entityId: target.id,
         entity: 'User',
-        before: {
-          id: existingUser.id,
-          name: existingUser.name,
-          lastName: existingUser.lastName,
-          documentType: existingUser.documentType,
-          documentNumber: existingUser.documentNumber,
-          email: existingUser.email,
-          code: existingUser.code,
-          phoneNumber: existingUser.phoneNumber,
-          phoneCountryCode: existingUser.phoneCountryCode,
-          source: existingUser.source,
-        },
-        after: {
-          id: responseUser.id,
-          name: responseUser.name,
-          lastName: responseUser.lastName,
-          documentType: responseUser.documentType,
-          documentNumber: responseUser.documentNumber,
-          email: responseUser.email,
-          code: responseUser.code,
-          phoneNumber: responseUser.phoneNumber,
-          phoneCountryCode: responseUser.phoneCountryCode,
-          source: existingUser.source,
-        },
+        before: toUserSnapshot(target),
+        after: toUserSnapshot(updatedUser),
       });
-      return responseUser;
+
+      return this.toUserType(updatedUser);
     } catch (e) {
+      // Email or document taken by another user (also covers a race with the check above)
+      if (isUniqueViolation(e)) {
+        throw new ConflictException('Email or document already belongs to another user');
+      }
+
       this.logger.error('Failed to update user', e instanceof Error ? e.stack : '');
-      throw new BadRequestException('Faild to update user');
+      throw new BadRequestException('Failed to update user');
     }
   }
 
-  toUserType(user: User): UserType {
+  toUserType(user: SafeUser): UserType {
     return {
       id: user.id,
       name: user.name,
-      lastName: user.lastName,
+      firstSurname: user.firstSurname,
+      secondSurname: user.secondSurname,
       role: user.role,
       documentType: user.documentType,
       documentNumber: user.documentNumber,
@@ -158,5 +132,17 @@ export class UsersService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  async assertDocumentAvailable(
+    documentType: User['documentType'],
+    documentNumber: User['documentNumber'],
+    excludeUserId?: User['id'],
+  ): Promise<void> {
+    if (await this.usersRepo.isExistingDocument(documentType, documentNumber, excludeUserId)) {
+      throw new ConflictException(
+        `Another user with document ${documentType} ${documentNumber} already exists`,
+      );
+    }
   }
 }

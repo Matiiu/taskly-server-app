@@ -2,6 +2,12 @@ import { randomInt } from 'crypto';
 
 const MIN_CODE_LENGTH = 6;
 const MAX_CODE_LENGTH = 20;
+const CODE_PREFIX = '@';
+const SUFFIX_SEPARATOR = '_';
+// Fixed width: 9,000 variants per seed, regardless of how long the name is
+const SUFFIX_DIGITS = 4;
+
+const sanitizeCode = (value: string): string => value.replace(/[^\p{L}\p{N}_]/gu, '').toLowerCase();
 
 export const normalizeCodeToken = (value: string): string => {
   return value
@@ -12,21 +18,29 @@ export const normalizeCodeToken = (value: string): string => {
 };
 
 export const toValidCodeLength = (value: string): string => {
-  const normalized = value.replace(/[^\p{L}\p{N}_]/gu, '').toLowerCase();
-  const maxBodyLength = MAX_CODE_LENGTH - 1;
-  const minBodyLength = MIN_CODE_LENGTH - 1;
+  const normalized = sanitizeCode(value);
+  const maxBodyLength = MAX_CODE_LENGTH - CODE_PREFIX.length;
+  const minBodyLength = MIN_CODE_LENGTH - CODE_PREFIX.length;
   const truncated = normalized.slice(0, maxBodyLength);
   const padded =
     truncated.length >= minBodyLength ? truncated : truncated.padEnd(minBodyLength, '0');
 
-  return `@${padded}`;
+  return `${CODE_PREFIX}${padded}`;
 };
 
-export const generateRandomNumericSuffix = (normalizedName: string): string => {
-  const maxDigits = Math.max(1, MAX_CODE_LENGTH - normalizedName.length - 2);
-  const digitCount = Math.min(6, maxDigits);
-  const min = 10 ** Math.max(0, digitCount - 1);
-  const max = 10 ** digitCount - 1;
+/**
+ * Builds `@<seed>_<suffix>`, trimming the seed (not the suffix) so the result fits the max length.
+ * Appending first and truncating afterwards would cut the suffix off long seeds,
+ * producing the same code on every retry.
+ */
+export const toValidCodeWithSuffix = (seed: string, suffix: string): string => {
+  const maxSeedLength =
+    MAX_CODE_LENGTH - CODE_PREFIX.length - SUFFIX_SEPARATOR.length - suffix.length;
+  // Drop trailing separators left by the trim, so it never ends up as "seed__1234"
+  const body = sanitizeCode(seed).slice(0, maxSeedLength).replace(/_+$/, '');
 
-  return String(randomInt(min, max + 1));
+  return toValidCodeLength(`${body}${SUFFIX_SEPARATOR}${suffix}`);
 };
+
+export const generateRandomNumericSuffix = (): string =>
+  String(randomInt(10 ** (SUFFIX_DIGITS - 1), 10 ** SUFFIX_DIGITS));

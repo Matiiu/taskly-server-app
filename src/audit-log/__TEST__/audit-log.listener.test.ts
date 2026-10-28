@@ -12,10 +12,7 @@ describe('AuditLogListener', () => {
     auditLogService = { logAction: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AuditLogListener,
-        { provide: AuditLogService, useValue: auditLogService },
-      ],
+      providers: [AuditLogListener, { provide: AuditLogService, useValue: auditLogService }],
     }).compile();
 
     listener = module.get<AuditLogListener>(AuditLogListener);

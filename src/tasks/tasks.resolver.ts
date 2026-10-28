@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Query, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator';
@@ -7,113 +7,126 @@ import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { CreateTaskInput } from '@/tasks/dto/create-task.input';
 import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';
-import { TaskActionType } from '@/tasks/entities/task-action.type';
 import { PaginatedTaskSummaryType } from '@/tasks/entities/paginated-task-summary.type';
-import { TaskDetailType } from '@/tasks/entities/task-detail.type';
-import { TaskExists } from '@/tasks/decorators/task-exists.decorator';
-import { TaskExistsGuard } from '@/tasks/guards/task-exists.guard';
 import type { User, Task } from 'generated/prisma/client';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
+import { Can } from '@/authorization/decorators/can.decorator';
+import { PolicyGuard } from '@/authorization/guards/policy.guard';
+import { CurrentTask } from '@/authorization/decorators/current-task.decorator';
+import { TaskDetailType } from '@/tasks/entities/task-detail.type';
+import type { TaskWithRelations } from '@/tasks/tasks.repository';
+import type { Workspace } from 'generated/prisma/client';
+import { MutationPayload } from '@/common/entities/mutation-payload.factory';
+import { TasksFiltersInput } from './dto/tasks-filters.input';
+
+const CreateTaskPayload = MutationPayload('CreateTaskPayload', {});
+const UpdateTaskPayload = MutationPayload('UpdateTaskPayload', {});
+const UpdateTaskStatusPayload = MutationPayload('UpdateTaskStatusPayload', {});
+const UpdateTaskCategoryPayload = MutationPayload('UpdateTaskCategoryPayload', {});
+const RemoveTaskPayload = MutationPayload('RemoveTaskPayload', {});
 
 @Resolver()
 @UseGuards(JwtAuthGuard)
 export class TasksResolver {
   constructor(private readonly tasksService: TasksService) {}
 
-  @Mutation(() => TaskActionType, { name: 'createMyTask' })
-  async createMyTask(
-    @CurrentUser('sub') userId: User['id'],
+  @Mutation(() => CreateTaskPayload, { name: 'createTask' })
+  @Can('task.create')
+  @UseGuards(PolicyGuard)
+  async create(
+    @CurrentUser('id') userId: User['id'],
+    @Args('workspaceId', { type: () => ID }) workspaceId: Workspace['id'],
     @Args('input') input: CreateTaskInput,
-  ): Promise<TaskActionType> {
-    const task = await this.tasksService.create(userId, input);
-
+  ): Promise<InstanceType<typeof CreateTaskPayload>> {
+    const task = await this.tasksService.create(userId, workspaceId, input);
     return {
-      message: `Task ${task.title} created successfully`,
-      task,
+      message: `Task ${task?.title} created successfully`,
     };
   }
 
-  @Query(() => PaginatedTaskSummaryType, { name: 'myTasks' })
-  findMyTasks(
-    @CurrentUser('sub') userId: User['id'],
+  @Query(() => PaginatedTaskSummaryType, { name: 'tasks' })
+  findMany(
+    @CurrentUser('id') userId: User['id'],
     @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
     pagination: PaginationArgsInput = {},
+    @Args('filters', { type: () => TasksFiltersInput, nullable: true })
+    filters: TasksFiltersInput = {},
   ): Promise<PaginatedTaskSummaryType> {
-    return this.tasksService.findMany(userId, pagination);
+    return this.tasksService.findMany(userId, pagination, filters);
   }
 
-  @Query(() => TaskDetailType, { name: 'myTask' })
-  @TaskExists({ by: 'id', arg: 'id', ownerOnly: false })
-  @UseGuards(TaskExistsGuard)
-  findMyTask(
-    @CurrentUser('sub') userId: User['id'],
-    @Args('id', { type: () => String }) id: Task['id'],
-  ): Promise<TaskDetailType> {
-    return this.tasksService.findOne(userId, id);
+  @Query(() => TaskDetailType, { name: 'task' })
+  @Can('task.view')
+  @UseGuards(PolicyGuard)
+  findOne(
+    @CurrentUser('id') userId: User['id'],
+    @Args('id', { type: () => ID }) _id: Task['id'],
+    @CurrentTask() task: TaskWithRelations,
+  ): TaskDetailType {
+    return this.tasksService.toDetail(task, userId);
   }
 
-  @Mutation(() => TaskActionType, { name: 'updateMyTask' })
-  @TaskExists({ by: 'id', arg: 'id' })
-  @UseGuards(TaskExistsGuard)
-  async updateMyTask(
-    @CurrentUser('sub') userId: User['id'],
-    @Args('id', { type: () => String }) id: Task['id'],
+  @Mutation(() => UpdateTaskPayload, { name: 'updateTask' })
+  @Can('task.update')
+  @UseGuards(PolicyGuard)
+  async update(
+    @CurrentUser('id') userId: User['id'],
+    @Args('id', { type: () => ID }) _id: Task['id'],
     @Args('input') input: CreateTaskInput,
-  ): Promise<TaskActionType> {
-    await this.tasksService.update(id, userId, input);
-
-    const task = await this.tasksService.findOne(userId, id);
+    @CurrentTask() existingTask: TaskWithRelations,
+  ): Promise<InstanceType<typeof UpdateTaskPayload>> {
+    const task = await this.tasksService.update(existingTask, userId, input);
 
     return {
-      message: `Task ${task.title} updated successfully`,
-      task,
+      message: `Task ${task.code} ${task.title} updated successfully`,
     };
   }
 
-  @Mutation(() => TaskActionType, { name: 'updateMyTaskStatus' })
-  @TaskExists({ by: 'id', arg: 'id' })
-  @UseGuards(TaskExistsGuard)
-  async updateMyStatus(
-    @CurrentUser('sub') userId: User['id'],
-    @Args('id', { type: () => String }) id: Task['id'],
+  @Mutation(() => UpdateTaskStatusPayload, { name: 'updateTaskStatus' })
+  @Can('task.changeStatus')
+  @UseGuards(PolicyGuard)
+  async updateStatus(
+    @CurrentUser('id') userId: User['id'],
+    @Args('id', { type: () => ID }) _id: Task['id'],
     @Args('input') input: UpdateTaskStatusInput,
-  ): Promise<TaskActionType> {
-    const task = await this.tasksService.updateStatus(id, userId, input);
+    @CurrentTask() existingTask: TaskWithRelations,
+  ): Promise<InstanceType<typeof UpdateTaskStatusPayload>> {
+    const task = await this.tasksService.updateStatus(existingTask, userId, input);
 
     return {
-      message: `The status of task ${task.title} updated successfully to ${task.status?.name}`,
-      task,
+      message: `The status of task ${task.code} ${task.title} updated successfully to ${task.status?.name}`,
     };
   }
 
-  @Mutation(() => TaskActionType, { name: 'updateMyTaskCategory' })
-  @TaskExists({ by: 'id', arg: 'id' })
-  @UseGuards(TaskExistsGuard)
-  async updateMyCategory(
-    @CurrentUser('sub') userId: User['id'],
-    @Args('id', { type: () => String }) id: Task['id'],
+  // No category-specific task permission: changing the category is editing the task
+  @Mutation(() => UpdateTaskCategoryPayload, { name: 'updateTaskCategory' })
+  @Can('task.update')
+  @UseGuards(PolicyGuard)
+  async updateCategory(
+    @CurrentUser('id') userId: User['id'],
+    @Args('id', { type: () => ID }) _id: Task['id'],
     @Args('input') input: UpdateTaskCategoryInput,
-  ): Promise<TaskActionType> {
-    const task = await this.tasksService.updateCategory(id, userId, input);
+    @CurrentTask() existingTask: TaskWithRelations,
+  ): Promise<InstanceType<typeof UpdateTaskCategoryPayload>> {
+    const task = await this.tasksService.updateCategory(existingTask, userId, input);
 
     return {
-      message: `The category of task ${task.title} updated successfully to ${task.category?.name}`,
-      task,
+      message: `The category of task ${task.code} ${task.title} updated successfully to ${task.category?.name}`,
     };
   }
 
-  @Mutation(() => TaskActionType, { name: 'removeMyTask' })
-  @TaskExists({ by: 'id', arg: 'id' })
-  @UseGuards(TaskExistsGuard)
-  async removeMyTask(
-    @CurrentUser('sub') userId: User['id'],
-    @Args('id', { type: () => String }) id: Task['id'],
-  ): Promise<TaskActionType> {
-    const task = await this.tasksService.remove(id);
+  @Mutation(() => RemoveTaskPayload, { name: 'removeTask' })
+  @Can('task.delete')
+  @UseGuards(PolicyGuard)
+  async remove(
+    @CurrentUser('id') userId: User['id'],
+    @Args('id', { type: () => ID }) _id: Task['id'],
+    @CurrentTask() existingTask: TaskWithRelations,
+  ): Promise<InstanceType<typeof RemoveTaskPayload>> {
+    const task = await this.tasksService.remove(existingTask, userId);
 
     return {
-      message: `Task ${task.title} removed successfully`,
-      task,
+      message: `Task ${task.code} ${task.title} removed successfully`,
     };
   }
 }

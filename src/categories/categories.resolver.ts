@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
@@ -7,34 +7,39 @@ import { CategoriesService } from '@/categories/categories.service';
 import { PaginatedCategoriesType } from '@/categories/entities/paginated-categories.type';
 import { CategoryActionType } from '@/categories/entities/category-action.type';
 import { UpdateCategoryColorInput } from '@/categories/dto/update-category-color.input';
-import { CategoryExists } from '@/categories/decorators/category-exists.decorator';
-import { CategoryExistsGuard } from '@/categories/guards/category-exists.guard';
-import type { User, Category } from 'generated/prisma/client';
+import type { User, Category, Workspace } from 'generated/prisma/client';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
+import { Can } from '@/authorization/decorators/can.decorator';
+import { PolicyGuard } from '@/authorization/guards/policy.guard';
 
+// PolicyGuard checks the user against `workspaceId`; the service then only touches categories of that workspace.
 @Resolver()
 @UseGuards(JwtAuthGuard)
 export class CategoriesResolver {
   constructor(private readonly categoriesService: CategoriesService) {}
 
-  @Query(() => PaginatedCategoriesType, { name: 'myCategories' })
-  findMyCategories(
-    @CurrentUser('sub') userId: User['id'],
+  @Query(() => PaginatedCategoriesType, { name: 'categories' })
+  @Can('category.view')
+  @UseGuards(PolicyGuard)
+  findMany(
+    @Args('workspaceId', { type: () => ID }) workspaceId: Workspace['id'],
     @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
     pagination: PaginationArgsInput = {},
+    @Args('search', { type: () => String, nullable: true }) search?: string | null,
   ): Promise<PaginatedCategoriesType> {
-    return this.categoriesService.findMany(userId, pagination);
+    return this.categoriesService.findMany(workspaceId, pagination, search ?? null);
   }
 
-  @Mutation(() => CategoryActionType, { name: 'updateMyCategoryColor' })
-  @CategoryExists({ by: 'id', arg: 'id' })
-  @UseGuards(CategoryExistsGuard)
+  @Mutation(() => CategoryActionType, { name: 'updateCategoryColor' })
+  @Can('category.manage')
+  @UseGuards(PolicyGuard)
   async updateColor(
-    @CurrentUser('sub') userId: User['id'],
-    @Args('id', { type: () => String }) id: Category['id'],
+    @CurrentUser('id') userId: User['id'],
+    @Args('workspaceId', { type: () => ID }) workspaceId: Workspace['id'],
+    @Args('id', { type: () => ID }) id: Category['id'],
     @Args('input') input: UpdateCategoryColorInput,
   ): Promise<CategoryActionType> {
-    const category = await this.categoriesService.updateColor(userId, id, input);
+    const category = await this.categoriesService.updateColor(workspaceId, userId, id, input);
 
     return {
       message: `Category ${category.name} color updated successfully`,
@@ -42,14 +47,15 @@ export class CategoriesResolver {
     };
   }
 
-  @Mutation(() => CategoryActionType, { name: 'removeMyCategory' })
-  @CategoryExists({ by: 'id', arg: 'id' })
-  @UseGuards(CategoryExistsGuard)
-  async removeMyCategory(
-    @CurrentUser('sub') userId: User['id'],
-    @Args('id', { type: () => String }) id: Category['id'],
+  @Mutation(() => CategoryActionType, { name: 'removeCategory' })
+  @Can('category.manage')
+  @UseGuards(PolicyGuard)
+  async remove(
+    @CurrentUser('id') userId: User['id'],
+    @Args('workspaceId', { type: () => ID }) workspaceId: Workspace['id'],
+    @Args('id', { type: () => ID }) id: Category['id'],
   ): Promise<CategoryActionType> {
-    const category = await this.categoriesService.remove(userId, id);
+    const category = await this.categoriesService.remove(workspaceId, userId, id);
 
     return {
       message: `Category ${category.name} removed successfully`,

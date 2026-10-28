@@ -1,184 +1,232 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from 'generated/prisma/client';
 
 import { CategoriesService } from '@/categories/categories.service';
-import { PrismaService } from '@/prisma/prisma.service';
+import { CategoriesRepository } from '@/categories/categories.repository';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
 import { createAppEventEmitterMock } from '@/common/testing/mocks/app-event-emitter.mock';
-import { buildCategory } from '@/common/testing/factories/domain.factory';
 import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';
+import { buildCategory } from '@/common/testing/factories/domain.factory';
+import { COLORS } from '@/common/constants/colors.contats';
 
-let prisma: ReturnType<typeof createPrismaMock>;
-let appEventEmitter: ReturnType<typeof createAppEventEmitterMock>;
+const WORKSPACE_ID = 'workspace-id-1';
+const USER_ID = 'user-id-1';
+
+const createCategoriesRepositoryMock = () => ({
+  findPage: jest.fn(),
+  findById: jest.fn(),
+  findByName: jest.fn(),
+  create: jest.fn(),
+  updateColor: jest.fn(),
+  delete: jest.fn(),
+});
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
-  let meta: ReturnType<typeof createPaginationMetaMock>;
+  let categoriesRepo: ReturnType<typeof createCategoriesRepositoryMock>;
+  let appEventEmitter: ReturnType<typeof createAppEventEmitterMock>;
 
   beforeEach(async () => {
-    jest.restoreAllMocks();
-    prisma = createPrismaMock();
+    categoriesRepo = createCategoriesRepositoryMock();
     appEventEmitter = createAppEventEmitterMock();
-    meta = createPaginationMetaMock();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CategoriesService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: CategoriesRepository, useValue: categoriesRepo },
         { provide: AppEventEmitterService, useValue: appEventEmitter },
       ],
     }).compile();
 
-    service = module.get<CategoriesService>(CategoriesService);
+    service = module.get(CategoriesService);
   });
 
   describe('findMany', () => {
-    it('returns paginated categories with default pagination', async () => {
+    it('uses the default pagination and returns categories with meta', async () => {
       const category = buildCategory();
-      prisma.category.findMany.mockResolvedValue([category]);
-      prisma.category.count.mockResolvedValue(meta.total);
+      categoriesRepo.findPage.mockResolvedValue({ categories: [category], total: 1 });
 
-      const result = await service.findMany('user-1');
+      const result = await service.findMany(WORKSPACE_ID);
 
-      expect(result).toEqual({ categories: [service.toCategoryType(category)], meta });
+      expect(categoriesRepo.findPage).toHaveBeenCalledWith({
+        workspaceId: WORKSPACE_ID,
+        page: 1,
+        limit: 10,
+        sortOrder: 'desc',
+        search: null,
+      });
+      expect(result).toEqual({
+        categories: [service.toCategoryType(category)],
+        meta: createPaginationMetaMock(),
+      });
     });
 
-    it('applies query filter when provided', async () => {
-      prisma.category.findMany.mockResolvedValue([]);
-      prisma.category.count.mockResolvedValue(0);
+    it('passes pagination and search through', async () => {
+      categoriesRepo.findPage.mockResolvedValue({ categories: [], total: 0 });
 
-      await service.findMany('user-1', { query: 'Work' });
+      await service.findMany(WORKSPACE_ID, { page: 2, limit: 5, sortOrder: 'asc' }, 'work');
 
-      expect(prisma.category.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            name: { contains: 'Work', mode: 'insensitive' },
-          }) as unknown,
-        }),
-      );
-    });
-
-    it('omits name filter when no query is provided', async () => {
-      prisma.category.findMany.mockResolvedValue([]);
-      prisma.category.count.mockResolvedValue(0);
-
-      await service.findMany('user-1');
-
-      expect(prisma.category.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: 'user-1' } }),
-      );
+      expect(categoriesRepo.findPage).toHaveBeenCalledWith({
+        workspaceId: WORKSPACE_ID,
+        page: 2,
+        limit: 5,
+        sortOrder: 'asc',
+        search: 'work',
+      });
     });
   });
 
-  describe('findByIdOrNameOrCreate', () => {
-    it('returns existing category when found by id', async () => {
-      const category = buildCategory();
-      prisma.category.findFirst.mockResolvedValueOnce(category);
+  describe('create', () => {
+    it('creates the category with the default color when neither id nor name exist', async () => {
+      const created = buildCategory({ name: 'Personal' });
+      categoriesRepo.findById.mockResolvedValue(null);
+      categoriesRepo.findByName.mockResolvedValue(null);
+      categoriesRepo.create.mockResolvedValue(created);
 
-      const result = await service.findByIdOrNameOrCreate('user-1', { id: category.id, name: category.name });
+      const result = await service.create(WORKSPACE_ID, { id: 'missing', name: 'Personal' });
 
-      expect(result).toEqual(category);
-      expect(prisma.category.findFirst).toHaveBeenCalledTimes(1);
-      expect(prisma.category.create).not.toHaveBeenCalled();
+      expect(result).toBe(created);
+      expect(categoriesRepo.findById).toHaveBeenCalledWith(WORKSPACE_ID, 'missing');
+      expect(categoriesRepo.findByName).toHaveBeenCalledWith(WORKSPACE_ID, 'Personal');
+      expect(categoriesRepo.create).toHaveBeenCalledWith({
+        workspaceId: WORKSPACE_ID,
+        name: 'Personal',
+        color: COLORS.DEFAULT_INITIAL,
+      });
     });
 
-    it('falls back to name lookup when id lookup returns null', async () => {
-      const category = buildCategory();
-      prisma.category.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(category);
+    it('skips the id lookup when no id is given', async () => {
+      categoriesRepo.findByName.mockResolvedValue(null);
+      categoriesRepo.create.mockResolvedValue(buildCategory({ name: 'Personal' }));
 
-      const result = await service.findByIdOrNameOrCreate('user-1', { id: 'wrong-id', name: category.name });
+      await service.create(WORKSPACE_ID, { name: 'Personal' });
 
-      expect(result).toEqual(category);
-      expect(prisma.category.findFirst).toHaveBeenCalledTimes(2);
+      expect(categoriesRepo.findById).not.toHaveBeenCalled();
     });
 
-    it('creates a new category when neither id nor name match', async () => {
-      const created = buildCategory({ name: 'New Category' });
-      prisma.category.findFirst.mockResolvedValue(null);
-      prisma.category.create.mockResolvedValue(created);
+    it('throws ConflictException when a category with that id already exists', async () => {
+      categoriesRepo.findById.mockResolvedValue(buildCategory({ name: 'Work' }));
 
-      const result = await service.findByIdOrNameOrCreate('user-1', { name: 'New Category' });
+      await expect(
+        service.create(WORKSPACE_ID, { id: 'category-id-1', name: 'Other' }),
+      ).rejects.toThrow(new ConflictException('Category Work already exists'));
+      expect(categoriesRepo.create).not.toHaveBeenCalled();
+    });
 
-      expect(result).toEqual(created);
-      expect(prisma.category.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ name: 'New Category', userId: 'user-1' }) as unknown,
+    it('throws ConflictException when a category with that name already exists', async () => {
+      categoriesRepo.findByName.mockResolvedValue(buildCategory({ name: 'Work' }));
+
+      await expect(service.create(WORKSPACE_ID, { name: 'Work' })).rejects.toThrow(
+        new ConflictException('Category Work already exists'),
+      );
+      expect(categoriesRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when a concurrent request created the same name', async () => {
+      categoriesRepo.findByName.mockResolvedValue(null);
+      categoriesRepo.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
         }),
+      );
+
+      await expect(service.create(WORKSPACE_ID, { name: 'Personal' })).rejects.toThrow(
+        new ConflictException('Category Personal already exists'),
       );
     });
 
-    it('skips id lookup and goes directly to name lookup when no id is provided', async () => {
-      const category = buildCategory();
-      prisma.category.findFirst.mockResolvedValueOnce(category);
+    it('rethrows other errors from the insert', async () => {
+      const boom = new Error('db down');
+      categoriesRepo.findByName.mockResolvedValue(null);
+      categoriesRepo.create.mockRejectedValue(boom);
 
-      await service.findByIdOrNameOrCreate('user-1', { name: category.name });
-
-      expect(prisma.category.findFirst).toHaveBeenCalledTimes(1);
-      expect(prisma.category.findFirst).toHaveBeenCalledWith({
-        where: { name: category.name, userId: 'user-1' },
-      });
+      await expect(service.create(WORKSPACE_ID, { name: 'Personal' })).rejects.toBe(boom);
     });
   });
 
   describe('updateColor', () => {
-    it('updates the color, emits an audit log, and returns the mapped response', async () => {
-      const existing = buildCategory();
-      const updated = buildCategory({ color: '#ff0000' });
-      prisma.category.findUniqueOrThrow.mockResolvedValue(existing);
-      prisma.category.update.mockResolvedValue(updated);
+    it('updates the color and logs the user who made the change', async () => {
+      const existing = buildCategory({ color: '#000000' });
+      const updated = buildCategory({ color: '#ffffff' });
+      categoriesRepo.findById.mockResolvedValue(existing);
+      categoriesRepo.updateColor.mockResolvedValue(updated);
 
-      const result = await service.updateColor('user-1', existing.id, { color: '#ff0000' });
+      const result = await service.updateColor(WORKSPACE_ID, USER_ID, existing.id, {
+        color: '#ffffff',
+      });
 
       expect(result).toEqual(service.toCategoryType(updated));
-      expect(prisma.category.update).toHaveBeenCalledWith({
-        where: { id: existing.id },
-        data: { color: '#ff0000' },
-      });
+      expect(categoriesRepo.findById).toHaveBeenCalledWith(WORKSPACE_ID, existing.id);
+      expect(categoriesRepo.updateColor).toHaveBeenCalledWith(existing.id, '#ffffff');
       expect(appEventEmitter.emitAuditLog).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'UPDATE_COLOR_CATEGORY', entity: 'Category', entityId: updated.id }),
+        expect.objectContaining({ userId: USER_ID, action: 'UPDATE_COLOR_CATEGORY' }),
       );
     });
 
-    it('throws BadRequestException when the update fails', async () => {
-      prisma.category.findUniqueOrThrow.mockResolvedValue(buildCategory());
-      jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
-      prisma.category.update.mockRejectedValue(new Error('DB error'));
+    it('throws NotFoundException without updating when the category is not in the workspace', async () => {
+      categoriesRepo.findById.mockResolvedValue(null);
 
-      await expect(service.updateColor('user-1', 'id', { color: '#fff' })).rejects.toThrow(BadRequestException);
-      expect(appEventEmitter.emitAuditLog).not.toHaveBeenCalled();
+      await expect(
+        service.updateColor(WORKSPACE_ID, USER_ID, 'missing', { color: '#ffffff' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(categoriesRepo.updateColor).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when the update fails', async () => {
+      categoriesRepo.findById.mockResolvedValue(buildCategory());
+      categoriesRepo.updateColor.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        service.updateColor(WORKSPACE_ID, USER_ID, 'category-id-1', { color: '#ffffff' }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('remove', () => {
-    it('deletes the category, emits an audit log, and returns the mapped response', async () => {
+    it('deletes the category and logs the user who made the change', async () => {
       const category = buildCategory();
-      prisma.category.delete.mockResolvedValue(category);
+      categoriesRepo.findById.mockResolvedValue(category);
+      categoriesRepo.delete.mockResolvedValue(category);
 
-      const result = await service.remove('user-1', category.id);
+      const result = await service.remove(WORKSPACE_ID, USER_ID, category.id);
 
       expect(result).toEqual(service.toCategoryType(category));
-      expect(prisma.category.delete).toHaveBeenCalledWith({ where: { id: category.id } });
+      expect(categoriesRepo.delete).toHaveBeenCalledWith(category.id);
       expect(appEventEmitter.emitAuditLog).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'DELETE_CATEGORY', entity: 'Category', entityId: category.id }),
+        expect.objectContaining({ userId: USER_ID, action: 'DELETE_CATEGORY' }),
       );
     });
 
-    it('throws BadRequestException when delete fails', async () => {
-      jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
-      prisma.category.delete.mockRejectedValue(new Error('DB error'));
+    it('throws NotFoundException without deleting when the category is not in the workspace', async () => {
+      categoriesRepo.findById.mockResolvedValue(null);
 
-      await expect(service.remove('user-1', 'id')).rejects.toThrow(BadRequestException);
-      expect(appEventEmitter.emitAuditLog).not.toHaveBeenCalled();
+      await expect(service.remove(WORKSPACE_ID, USER_ID, 'missing')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(categoriesRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when the delete fails', async () => {
+      categoriesRepo.findById.mockResolvedValue(buildCategory());
+      categoriesRepo.delete.mockRejectedValue(new Error('db down'));
+
+      await expect(service.remove(WORKSPACE_ID, USER_ID, 'category-id-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
-  describe('toCategoryType', () => {
-    it('maps a Category entity to the response type', () => {
-      const category = buildCategory();
-      const { id, name, color, createdAt, updatedAt } = category;
+  it('toCategoryType exposes only the public fields', () => {
+    const { id, name, color, createdAt, updatedAt } = buildCategory();
 
-      expect(service.toCategoryType(category)).toEqual({ id, name, color, createdAt, updatedAt });
+    expect(service.toCategoryType(buildCategory())).toEqual({
+      id,
+      name,
+      color,
+      createdAt,
+      updatedAt,
     });
   });
 });

@@ -9,7 +9,10 @@ export class CommentAuthorType {
   name: string;
 
   @Field(() => String)
-  lastName: string;
+  firstSurname: string;
+
+  @Field(() => String, { nullable: true })
+  secondSurname: string | null;
 
   @Field(() => String)
   email: string;

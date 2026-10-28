@@ -3,11 +3,12 @@ import { Module } from '@nestjs/common';
 import { JwtAuthModule } from '@/auth/jwt-auth.module';
 import { UsersResolver } from '@/users/users.resolver';
 import { UsersService } from '@/users/users.service';
-import { UserExistsGuard } from '@/users/guards/user-exists.guard';
+import { UsersRepository } from '@/users/users.repository';
+import { TargetUserGuard } from '@/users/guards/target-user.guard';
 
 @Module({
   imports: [JwtAuthModule],
-  providers: [UsersResolver, UsersService, UserExistsGuard],
-  exports: [UsersService, JwtAuthModule],
+  providers: [UsersResolver, UsersService, UsersRepository, TargetUserGuard],
+  exports: [UsersService, JwtAuthModule, UsersRepository],
 })
 export class UsersModule {}

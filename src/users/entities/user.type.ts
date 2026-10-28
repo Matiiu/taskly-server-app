@@ -11,7 +11,10 @@ export class UserType implements Partial<User> {
   name: string;
 
   @Field(() => String)
-  lastName: string;
+  firstSurname: string;
+
+  @Field(() => String, { nullable: true })
+  secondSurname: string | null;
 
   @Field(() => UserRole)
   role: UserRole;

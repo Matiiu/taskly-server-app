@@ -1,5 +1,5 @@
 import { InputType, Field, Int } from '@nestjs/graphql';
-import { IsInt, IsOptional, IsString, IsEnum, Min, Max, MaxLength } from 'class-validator';
+import { IsInt, IsOptional, IsEnum, Min, Max } from 'class-validator';
 
 import { LIMIT_DEFAULT, PAGE_DEFAULT } from '@/common/constants/pagination.constants';
 
@@ -19,12 +19,6 @@ export class PaginationArgsInput {
   @Min(1)
   @Max(500)
   limit?: number = LIMIT_DEFAULT;
-
-  @Field(() => String, { nullable: true })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  query?: string | null;
 
   @Field(() => SortOrder, { nullable: true })
   @IsOptional()

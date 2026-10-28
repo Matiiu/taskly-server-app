@@ -17,7 +17,7 @@ export class TaskAssigneesResolver {
 
   @Mutation(() => TaskAssigneeActionType, { name: 'addMyTaskAssignee' })
   async addMyTaskAssignee(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('input') input: AddTaskAssigneeInput,
   ): Promise<TaskAssigneeActionType> {
     const assignee = await this.taskAssigneesService.create(userId, input);
@@ -30,7 +30,7 @@ export class TaskAssigneesResolver {
 
   @Query(() => PaginatedTaskAssigneesType, { name: 'myTaskAssignees' })
   findMyTaskAssignees(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('taskId', { type: () => String }) taskId: Task['id'],
     @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
     pagination?: PaginationArgsInput,
@@ -40,7 +40,7 @@ export class TaskAssigneesResolver {
 
   @Mutation(() => TaskAssigneeActionType, { name: 'removeMyTaskAssignee' })
   async removeMyTaskAssignee(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('taskId', { type: () => String }) taskId: Task['id'],
     @Args('assigneeId', { type: () => String }) assigneeId: User['id'],
   ): Promise<TaskAssigneeActionType> {

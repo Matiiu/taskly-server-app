@@ -4,4 +4,6 @@ export const createAuthServiceMock = () => ({
   recoverPassword: jest.fn(),
   suggestCodes: jest.fn(),
   logout: jest.fn(),
+  deleteAccount: jest.fn(),
+  recoverAccount: jest.fn(),
 });

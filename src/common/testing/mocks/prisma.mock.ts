@@ -12,6 +12,9 @@ export const createPrismaMock = () => ({
   revokedToken: {
     upsert: jest.fn(),
   },
+  workspace: {
+    findFirst: jest.fn(),
+  },
   task: {
     create: jest.fn(),
     findMany: jest.fn(),
@@ -24,6 +27,7 @@ export const createPrismaMock = () => ({
     findMany: jest.fn(),
     count: jest.fn(),
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     findUniqueOrThrow: jest.fn(),
     createMany: jest.fn(),
     create: jest.fn(),
@@ -34,6 +38,7 @@ export const createPrismaMock = () => ({
     findMany: jest.fn(),
     count: jest.fn(),
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     findUniqueOrThrow: jest.fn(),
     createMany: jest.fn(),
     create: jest.fn(),

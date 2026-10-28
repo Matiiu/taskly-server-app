@@ -1,13 +1,14 @@
 // common/types/audit-payload.types.ts
-import type { AuditAction, AuditLog } from 'generated/prisma/client';
+import type { AuditLog } from 'generated/prisma/client';
 import type { User, Task, Status, Category, Comment } from 'generated/prisma/client';
 
 // Reusable snapshots
-type UserSnapshot = Pick<
+export type UserSnapshot = Pick<
   User,
   | 'id'
   | 'name'
-  | 'lastName'
+  | 'firstSurname'
+  | 'secondSurname'
   | 'documentType'
   | 'documentNumber'
   | 'code'
@@ -16,7 +17,10 @@ type UserSnapshot = Pick<
   | 'phoneCountryCode'
   | 'source'
 >;
-type UserMinimalSnapshot = Pick<User, 'id' | 'email' | 'code' | 'name' | 'lastName'>;
+export type UserMinimalSnapshot = Pick<
+  User,
+  'id' | 'email' | 'code' | 'name' | 'firstSurname' | 'secondSurname'
+>;
 
 type TaskSnapshot = Pick<Task, 'id' | 'title' | 'description' | 'dueDate'> & {
   status: StatusSnapshot | null;
@@ -41,6 +45,7 @@ export type AuditChangeMap = {
   // User actions — full snapshot
   REGISTER_USER: { before: null; after: UserSnapshot };
   INACTIVATE_USER: { before: UserSnapshot; after: null };
+  REACTIVATE_USER: { before: null; after: UserSnapshot };
 
   // User Update — before & after
   UPDATE_USER: { before: UserSnapshot; after: UserSnapshot };
@@ -68,7 +73,7 @@ export type AuditChangeMap = {
   DELETE_CATEGORY: { before: CategorySnapshot; after: null };
 };
 
-export type EmitAuditLogInput<A extends AuditAction> = {
+export type EmitAuditLogInput<A extends keyof AuditChangeMap> = {
   userId: AuditLog['userId'];
   action: A;
   entityId: AuditLog['entityId'];

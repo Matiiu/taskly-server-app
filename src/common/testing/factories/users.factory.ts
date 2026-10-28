@@ -1,9 +1,11 @@
 import { AuthProvider, DocumentType, type User } from 'generated/prisma/client';
+import type { SafeUser } from '@/users/types/users.type';
 
 export const buildUser = (overrides: Partial<User> = {}): User => ({
   id: 'user-id-1',
   name: 'John',
-  lastName: 'Doe',
+  firstSurname: 'Doe',
+  secondSurname: null,
   role: 'USER',
   documentType: DocumentType.DNI,
   documentNumber: '123456789',
@@ -14,15 +16,24 @@ export const buildUser = (overrides: Partial<User> = {}): User => ({
   phoneCountryCode: null,
   source: AuthProvider.LOCAL,
   active: true,
+  sessionsRevokedAt: null,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
   ...overrides,
 });
 
-export const buildUserType = (user: User) => ({
+/** A user as UsersRepository/AuthRepository reads it: without the password. */
+export const buildSafeUser = (overrides: Partial<SafeUser> = {}): SafeUser => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { password: _password, ...user } = buildUser(overrides);
+  return user;
+};
+
+export const buildUserType = (user: SafeUser) => ({
   id: user.id,
   name: user.name,
-  lastName: user.lastName,
+  firstSurname: user.firstSurname,
+  secondSurname: user.secondSurname,
   documentType: user.documentType,
   documentNumber: user.documentNumber,
   role: user.role,

@@ -25,6 +25,7 @@ enum AuditAction {
   CHANGE_PASSWORD
   UPDATE_USER
   INACTIVATE_USER
+  REACTIVATE_USER
   CREATE_TASK
   UPDATE_TASK
   INACTIVATE_TASK
@@ -37,6 +38,12 @@ enum AuditAction {
   UNASSIGN_TASK
   UPDATE_COLOR_STATUS
   DELETE_STATUS
+  CREATE_WORKSPACE
+  UPDATE_WORKSPACE
+  INACTIVATE_WORKSPACE
+  ADD_WORKSPACE_MEMBER
+  REMOVE_WORKSPACE_MEMBER
+  CHANGE_WORKSPACE_ROLE
 }
 
 enum AuditEntity {
@@ -46,6 +53,8 @@ enum AuditEntity {
   Status
   TaskAssignee
   Comment
+  Workspace
+  WorkspaceMember
 }
 
 enum AuthProvider {
@@ -60,6 +69,29 @@ enum DocumentType {
   DRIVER_LICENSE
 }
 
+enum WorkspacePermission {
+  WORKSPACE_UPDATE
+  MEMBER_INVITE
+  MEMBER_REMOVE
+  ROLE_MANAGE
+  STATUS_MANAGE
+  CATEGORY_MANAGE
+  TASK_CREATE
+  TASK_UPDATE
+  TASK_DELETE
+  TASK_ASSIGN
+  COMMENT_CREATE
+  COMMENT_DELETE_ANY
+}
+
+enum TaskPermission {
+  TASK_UPDATE
+  TASK_CHANGE_STATUS
+  TASK_ASSIGN
+  COMMENT_CREATE
+  COMMENT_DELETE_ANY
+}
+
 // ----------------------------
 // Models
 // ----------------------------
@@ -68,47 +100,121 @@ model AuditLog {
   id          String      @id @default(uuid())
   action      AuditAction
   entity      AuditEntity
-  entityId    String      // primary affected record id
-  before      Json?       // snapshot before the change
-  after       Json?       // snapshot after the change
+  entityId    String // primary affected record id
+  before      Json? // snapshot before the change
+  after       Json? // snapshot after the change
   description String?
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime    @default(now())
 
-  userId      String?
-  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([createdAt])
-  @@index([entity, entityId])  // query all logs for a specific record
-  @@index([action])            // filter by action type
+  @@index([entity, entityId]) // query all logs for a specific record
+  @@index([action]) // filter by action type
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  lastName  String
-  role UserRole @default(USER)
-  documentType DocumentType
-  documentNumber String @unique
-  code      String   @unique
-  email     String   @unique
-  phoneNumber String?
-  phoneCountryCode String?
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  active  Boolean  @default(true)
-  source   AuthProvider?
-  tasks     Task[]
-  auditLogs AuditLog[]
-  revokedTokens RevokedToken[]
-  statuses   Status[]
-  categories Category[]
-  assignedTasks  TaskAssignee[]
-  comments       Comment[]
-  commentReplies CommentReply[]
+  id                String       @id @default(uuid())
+  name              String
+  firstSurname      String
+  secondSurname     String?
+  role              UserRole     @default(USER)
+  documentType      DocumentType
+  documentNumber    String
+  code              String       @unique
+  email             String       @unique
+  phoneNumber       String?
+  phoneCountryCode  String?
+  password          String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  active            Boolean      @default(true)
+  /// Tokens issued before this moment are rejected (ends every session at once).
+  sessionsRevokedAt DateTime?
+  source            AuthProvider
+  createdTasks      Task[]       @relation("TasksCreated")
+
+  comments             Comment[]
+  commentReplies       CommentReply[]
+  auditLogs            AuditLog[]
+  revokedTokens        RevokedToken[]
+  ownedWorkspaces      Workspace[]
+  workspaceMemberships WorkspaceMember[] @relation("WorkspaceMemberships")
+  workspaceInvites     WorkspaceMember[] @relation("WorkspaceInvites")
+  assignedTasks        TaskAssignee[]    @relation("TaskAssignments")
+  tasksAssignedByMe    TaskAssignee[]    @relation("TaskAssignedBy")
+
+  /// A document number is unique per document type (the same number can exist under another type).
+  @@unique([documentType, documentNumber])
+}
+
+model Workspace {
+  id               String   @id @default(uuid())
+  name             String
+  code             String
+  taskPrefix       String
+  lastTaskSequence Int      @default(0)
+  description      String?
+  isDefault        Boolean  @default(false)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  tasks          Task[]
+  statuses       Status[]
+  categories     Category[]
+  members        WorkspaceMember[]
+  workspaceRoles WorkspaceRole[]
+  taskRoles      TaskRole[]
+
+  @@unique([ownerId, code])
+  @@unique([ownerId, taskPrefix])
+  @@unique([ownerId, name])
+  @@index([ownerId, active])
+}
+
+model WorkspaceRole {
+  id          String                @id @default(uuid())
+  name        String
+  description String?
+  permissions WorkspacePermission[]
+  isSystem    Boolean               @default(false)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  members WorkspaceMember[]
+
+  @@unique([workspaceId, name])
+  @@unique([id, workspaceId])
+}
+
+model WorkspaceMember {
+  workspaceId String
+  userId      String
+  joinedAt    DateTime @default(now())
+
+  roleId String
+  role   WorkspaceRole @relation(fields: [roleId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+
+  invitedById String?
+  invitedBy   User?   @relation("WorkspaceInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation("WorkspaceMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@index([roleId])
 }
 
 model RevokedToken {
@@ -117,11 +223,42 @@ model RevokedToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([expiresAt])
   @@index([userId])
+}
+
+model Task {
+  id             String    @id @default(uuid())
+  title          String
+  description    String?
+  dueDate        DateTime? @db.Date
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  active         Boolean   @default(true)
+  sequenceNumber Int
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User   @relation("TasksCreated", fields: [createdById], references: [id], onDelete: Restrict)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  statusId  String?
+  status    Status?        @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  assignees TaskAssignee[]
+  comments  Comment[]
+
+  @@unique([workspaceId, sequenceNumber])
+  @@index([workspaceId, active, createdAt])
+  @@index([createdById])
+  @@index([categoryId])
+  @@index([statusId])
 }
 
 model Category {
@@ -131,38 +268,29 @@ model Category {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  userId    String                                    
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)                   
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  tasks     Task[]
+  tasks Task[]
 
-  @@unique([name, userId])
-  @@index([userId])
+  @@unique([workspaceId, name])
+  @@index([workspaceId, createdAt])
 }
 
-model Task {
-  id          String     @id @default(uuid())
-  title       String
-  description String?
-  dueDate     DateTime?  @db.Date
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  active    Boolean    @default(true)
+model Status {
+  id        String   @id @default(uuid())
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  categoryId  String?
-  category    Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tasks Task[]
 
-  statusId   String?
-  status     Status?  @relation(fields: [statusId], references: [id], onDelete: SetNull)
-  assignees   TaskAssignee[]
-  comments    Comment[]
-
-  @@index([userId])
-  @@index([categoryId])
-  @@index([statusId])
+  @@unique([workspaceId, name])
+  @@index([workspaceId, createdAt])
 }
 
 model Comment {
@@ -173,15 +301,15 @@ model Comment {
   edited    Boolean  @default(false)
   active    Boolean  @default(true)
 
-  taskId    String
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
-  replies   CommentReply[]
+  replies CommentReply[]
 
-  @@index([taskId])
+  @@index([taskId, active, createdAt])
   @@index([userId])
 }
 
@@ -194,40 +322,46 @@ model CommentReply {
   active    Boolean  @default(true)
 
   commentId String
-  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
-  @@index([commentId])
+  @@index([commentId, active, createdAt])
   @@index([userId])
 }
 
-model Status {
-  id        String   @id @default(uuid())
-  name      String
-  color     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model TaskRole {
+  id          String           @id @default(uuid())
+  name        String
+  description String?
+  permissions TaskPermission[]
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  tasks     Task[]
+  assignees TaskAssignee[]
 
-  @@unique([name, userId]) // same user can't have two statuses with the same name
-  @@index([userId])
+  @@unique([workspaceId, name])
 }
 
 model TaskAssignee {
-  taskId    String
-  userId    String
+  taskId     String
+  userId     String
   assignedAt DateTime @default(now())
 
-  task      Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedById String?
+  assignedBy   User?   @relation("TaskAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
-  @@id([taskId, userId]) // composite PK, no duplicates
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation("TaskAssignments", fields: [userId], references: [id], onDelete: Cascade)
+
+  roleId String
+  role   TaskRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([taskId, userId])
   @@index([userId])
-  @@index([taskId])
 }

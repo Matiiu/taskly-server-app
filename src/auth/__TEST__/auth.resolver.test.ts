@@ -30,11 +30,11 @@ describe('AuthResolver', () => {
   });
 
   describe('register', () => {
-    it('should return the user, token, and success message', async () => {
+    it('should return the user and success message', async () => {
       const user = buildUserType(buildUser());
       const input = {
         name: 'John',
-        lastName: 'Doe',
+        firstSurname: 'Doe',
         documentType: DocumentType.DNI,
         documentNumber: '123456789',
         email: 'john@example.com',
@@ -44,49 +44,44 @@ describe('AuthResolver', () => {
         phoneCountryCode: null,
       };
 
-      authServiceMock.register.mockResolvedValue({ user, token: MOCK_TOKEN });
+      authServiceMock.register.mockResolvedValue(user);
 
       const result = await resolver.register(input);
 
       expect(authServiceMock.register).toHaveBeenCalledWith(input);
       expect(result).toEqual({
         user,
-        token: MOCK_TOKEN,
         message: 'User John Doe registered successfully',
       });
     });
   });
 
   describe('signIn', () => {
-    it('should return the user, token, and success message', async () => {
-      const user = buildUserType(buildUser());
+    it('should return the token and success message', async () => {
       const input = { email: 'john@example.com', password: 'Password123!' };
 
-      authServiceMock.signIn.mockResolvedValue({ user, token: MOCK_TOKEN });
+      authServiceMock.signIn.mockResolvedValue(MOCK_TOKEN);
 
       const result = await resolver.signIn(input);
 
       expect(authServiceMock.signIn).toHaveBeenCalledWith(input);
       expect(result).toEqual({
-        user,
         token: MOCK_TOKEN,
-        message: 'User John Doe signed in successfully',
+        message: 'signed in successfully',
       });
     });
   });
 
   describe('recoverPassword', () => {
-    it('should return the user, token, and recovery message', async () => {
-      const user = buildUserType(buildUser());
+    it('should return the token and recovery message', async () => {
       const input = { email: 'john@example.com', password: 'NewPassword123!' };
 
-      authServiceMock.recoverPassword.mockResolvedValue({ user, token: MOCK_TOKEN });
+      authServiceMock.recoverPassword.mockResolvedValue(MOCK_TOKEN);
 
       const result = await resolver.recoverPassword(input);
 
       expect(authServiceMock.recoverPassword).toHaveBeenCalledWith(input);
       expect(result).toEqual({
-        user,
         token: MOCK_TOKEN,
         message: 'Password recovered successfully',
       });
@@ -96,7 +91,7 @@ describe('AuthResolver', () => {
   describe('suggestCodes', () => {
     it('should return the suggested codes from the service', async () => {
       const codes = ['@john_doe', '@doe_john', '@john_1234'];
-      const input = { name: 'John', lastName: 'Doe' };
+      const input = { name: 'John', firstSurname: 'Doe' };
 
       authServiceMock.suggestCodes.mockResolvedValue(codes);
 
@@ -118,6 +113,33 @@ describe('AuthResolver', () => {
         userId: 'user-id-1',
       });
       expect(result).toBe(true);
+    });
+  });
+
+  describe('deleteAccount', () => {
+    it('should call the service with the user and password and return a message', async () => {
+      authServiceMock.deleteAccount.mockResolvedValue(undefined);
+
+      const result = await resolver.deleteAccount('user-id-1', { password: 'Password123!' });
+
+      expect(authServiceMock.deleteAccount).toHaveBeenCalledWith({
+        userId: 'user-id-1',
+        password: 'Password123!',
+      });
+      expect(result).toEqual({ message: 'Account deleted successfully' });
+    });
+  });
+
+  describe('recoverAccount', () => {
+    it('should return the token and recovery message', async () => {
+      const input = { email: 'john@example.com', password: 'Password123!' };
+
+      authServiceMock.recoverAccount.mockResolvedValue(MOCK_TOKEN);
+
+      const result = await resolver.recoverAccount(input);
+
+      expect(authServiceMock.recoverAccount).toHaveBeenCalledWith(input);
+      expect(result).toEqual({ token: MOCK_TOKEN, message: 'Account recovered successfully' });
     });
   });
 });

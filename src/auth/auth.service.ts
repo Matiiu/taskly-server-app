@@ -1,23 +1,30 @@
 import { Injectable, ConflictException, BadRequestException, Logger } from '@nestjs/common';
-import { randomBytes, randomUUID } from 'crypto';
-import { JwtService } from '@nestjs/jwt';
 
-import { PrismaService } from '@/prisma/prisma.service';
 import { RegisterInput } from '@/auth/dto/register.input';
 import { AuthProvider } from 'generated/prisma/enums';
 import { SignInInput } from '@/auth/dto/sign-in.input';
-import { RegisterType } from '@/auth/entities/register.type';
 import { UsersService } from '@/users/users.service';
 import { User } from 'generated/prisma/client';
 import { hashPassword, comparePassword } from '@/common/utils/hash.util';
 import { StatusesService } from '@/statuses/statuses.service';
 import { RecoverPasswordInput } from '@/auth/dto/recover-password.input';
+import { RecoverAccountInput } from '@/auth/dto/recover-account.input';
+import { SuggestCodesInput } from '@/auth/dto/suggest-codes.input';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import {
   generateRandomNumericSuffix,
   normalizeCodeToken,
   toValidCodeLength,
+  toValidCodeWithSuffix,
 } from '@/common/utils/code-suggestion.util';
+import { TokenService } from '@/auth/token.service';
+import { UsersRepository } from '@/users/users.repository';
+import { isUniqueViolation } from '@/prisma/prisma.errors';
+import { AuthRepository } from '@/auth/auth.repository';
+import { UserType } from '@/users/entities/user.type';
+import { assertUserIsActive } from '@/users/utils/user-status.util';
+import { toUserMinimalSnapshot, toUserSnapshot } from '@/users/utils/user-snapshot.util';
+import { PrismaService } from '@/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -26,156 +33,149 @@ export class AuthService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
+    private readonly tokenService: TokenService,
+    private readonly authRepo: AuthRepository,
+    private readonly usersRepo: UsersRepository,
     private readonly usersService: UsersService,
     private readonly statusesService: StatusesService,
     private readonly appEventEmitter: AppEventEmitterService,
   ) {}
 
-  async register(input: RegisterInput): Promise<RegisterType> {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: input.email },
-    });
+  async register(input: RegisterInput): Promise<UserType> {
+    const existingUser = await this.authRepo.findByEmail(input.email);
 
     if (existingUser) {
       throw new ConflictException('User already exists');
     }
 
-    const code = input.code
-      ? await this.ensureCodeIsAvailable(input.code)
-      : await this.generateUniqueCode(
-          () => `${input.name.toLocaleLowerCase()}_${randomBytes(4).toString('hex')}`,
-        );
+    await this.usersService.assertDocumentAvailable(input.documentType, input.documentNumber);
 
     try {
       const hashedPassword = await hashPassword(input.password);
-      const result = await this.prisma.user.create({
-        data: {
-          name: input.name,
-          lastName: input.lastName,
-          documentType: input.documentType,
-          documentNumber: input.documentNumber,
-          email: input.email,
-          password: hashedPassword,
-          source: AuthProvider.LOCAL,
-          phoneNumber: input.phoneNumber,
-          phoneCountryCode: input.phoneCountryCode,
-          code,
-        },
+      const result = await this.usersRepo.create({
+        ...input,
+        password: hashedPassword,
+        source: AuthProvider.LOCAL,
       });
 
       const user = this.usersService.toUserType(result);
-      const [token] = await Promise.all([
-        this.generateToken({ userId: user.id, userCode: user.code }),
-        this.statusesService.createDefaultStatuses(user.id),
-      ]);
       this.appEventEmitter.emitAuditLog({
         userId: user.id,
         action: 'REGISTER_USER',
         entityId: user.id,
         entity: 'User',
-        after: {
-          id: user.id,
-          email: user.email,
-          code: user.code,
-          name: user.name,
-          lastName: user.lastName,
-          documentType: user.documentType,
-          documentNumber: user.documentNumber,
-          phoneNumber: user.phoneNumber,
-          phoneCountryCode: user.phoneCountryCode,
-          source: result.source,
-        },
+        after: toUserSnapshot(result),
       });
-      return { user, token };
+      return user;
     } catch (e) {
+      // Email, document or code taken (e.g. by an inactive user, or a concurrent registration)
+      if (isUniqueViolation(e)) {
+        throw new ConflictException('User already exists');
+      }
+
       this.logger.error('Failed to create user', e instanceof Error ? e.stack : '');
       throw new BadRequestException('Failed to create user');
     }
   }
 
-  async signIn({ email, password }: SignInInput): Promise<RegisterType> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  async signIn({ email, password }: SignInInput): Promise<string> {
+    const user = await this.validateCredentials(email, password);
 
-    if (!user) {
-      throw new BadRequestException('Email or password is incorrect');
-    }
+    assertUserIsActive(user);
 
-    const isPasswordValid = await comparePassword(password, user.password);
-
-    if (!isPasswordValid) {
-      throw new BadRequestException('Email or password is incorrect');
-    }
-    const token = await this.generateToken({ userId: user.id, userCode: user.code });
-    const responseUser = this.usersService.toUserType(user);
+    const token = await this.tokenService.sign({ userId: user.id, userCode: user.code });
 
     this.appEventEmitter.emitAuditLog({
       userId: user.id,
       action: 'LOGIN_USER',
       entityId: user.id,
       entity: 'User',
-      after: {
-        id: responseUser.id,
-        email: responseUser.email,
-        code: responseUser.code,
-        name: responseUser.name,
-        lastName: responseUser.lastName,
-      },
+      after: toUserMinimalSnapshot(user),
     });
 
-    return { user: responseUser, token };
+    return token;
   }
 
   async logout({ jti, userId }: { jti: string; userId: User['id'] }): Promise<void> {
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const user = await this.usersRepo.findById(userId);
+    if (!user) return;
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-    const responseUser = this.usersService.toUserType(user);
-
-    await this.prisma.revokedToken.upsert({
-      where: { jti },
-      update: { expiresAt, userId },
-      create: {
-        jti,
-        userId,
-        expiresAt,
-      },
-    });
-
+    await this.tokenService.revokeSession(jti, userId);
     this.appEventEmitter.emitAuditLog({
       userId,
       action: 'LOGOUT_USER',
       entityId: userId,
       entity: 'User',
-      before: {
-        id: responseUser.id,
-        email: responseUser.email,
-        code: responseUser.code,
-        name: responseUser.name,
-        lastName: responseUser.lastName,
-      },
+      before: toUserMinimalSnapshot(user),
     });
   }
 
-  async recoverPassword({ email, password }: RecoverPasswordInput): Promise<RegisterType> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  /**
+   * Soft delete: deactivates the account and ends all of its sessions, on every device.
+   * Requires the password again so a stolen token alone can't delete the account.
+   */
+  async deleteAccount({
+    userId,
+    password,
+  }: {
+    userId: User['id'];
+    password: string;
+  }): Promise<void> {
+    const user = await this.authRepo.findById(userId);
+    const isPasswordValid = user ? await comparePassword(password, user.password) : false;
+
+    if (!user || !isPasswordValid) {
+      throw new BadRequestException('Password is incorrect');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.usersRepo.setActive(user.id, false, tx);
+      await this.tokenService.revokeAllSessions(user.id, tx);
+    });
+
+    this.appEventEmitter.emitAuditLog({
+      userId: user.id,
+      action: 'INACTIVATE_USER',
+      entityId: user.id,
+      entity: 'User',
+      before: toUserSnapshot(user),
+      after: null,
+    });
+  }
+
+  /**
+   * Reactivates a soft-deleted account. The user can't sign in while inactive,
+   * so ownership is proven with email + password instead.
+   */
+  async recoverAccount({ email, password }: RecoverAccountInput): Promise<string> {
+    const user = await this.validateCredentials(email, password);
+
+    if (user.active) {
+      throw new ConflictException('Account is already active');
+    }
+
+    const reactivatedUser = await this.usersRepo.setActive(user.id, true);
+    const token = await this.tokenService.sign({ userId: user.id, userCode: user.code });
+
+    this.appEventEmitter.emitAuditLog({
+      userId: user.id,
+      action: 'REACTIVATE_USER',
+      entityId: user.id,
+      entity: 'User',
+      before: null,
+      after: toUserSnapshot(reactivatedUser),
+    });
+
+    return token;
+  }
+
+  async recoverPassword({ email, password }: RecoverPasswordInput): Promise<string> {
+    const user = await this.authRepo.findByEmail(email);
     if (!user) {
       throw new BadRequestException('User not found');
     }
 
-    const [token] = await Promise.all([
-      this.generateToken({ userId: user.id, userCode: user.code }),
-      this.prisma.user.update({
-        where: { email },
-        data: { password: await hashPassword(password) },
-      }),
-    ]);
+    assertUserIsActive(user);
 
     const isCurrentPassword = await comparePassword(password, user.password);
 
@@ -183,39 +183,40 @@ export class AuthService {
       throw new BadRequestException('New password must be different from the current password');
     }
 
-    const responseUser = this.usersService.toUserType(user);
+    const passwordHash = await hashPassword(password);
+
+    // Sign out every device that used the old password; the new token is issued after the cutoff.
+    await this.prisma.$transaction(async (tx) => {
+      await this.authRepo.updatePassword(user.id, passwordHash, tx);
+      await this.tokenService.revokeAllSessions(user.id, tx);
+    });
+
+    const token = await this.tokenService.sign({ userId: user.id, userCode: user.code });
 
     this.appEventEmitter.emitAuditLog({
       userId: user.id,
       action: 'RECOVER_PASSWORD',
       entityId: user.id,
       entity: 'User',
-      before: {
-        id: responseUser.id,
-        email: responseUser.email,
-        code: responseUser.code,
-        name: responseUser.name,
-        lastName: responseUser.lastName,
-      },
-      after: {
-        id: responseUser.id,
-        email: responseUser.email,
-        code: responseUser.code,
-        name: responseUser.name,
-        lastName: responseUser.lastName,
-      },
+      before: toUserMinimalSnapshot(user),
+      after: toUserMinimalSnapshot(user),
     });
 
-    return { user: responseUser, token };
+    return token;
   }
 
-  async suggestCodes({ name, lastName }: { name: string; lastName: string }): Promise<string[]> {
-    const normalizedName = normalizeCodeToken(name) || 'user';
-    const normalizedLastName = normalizeCodeToken(lastName) || 'account';
+  async suggestCodes({ name, firstSurname, secondSurname }: SuggestCodesInput): Promise<string[]> {
+    const normalizedName = normalizeCodeToken(name);
+    const normalizedFirstSurname = normalizeCodeToken(firstSurname);
+    const normalizedSecondSurname = secondSurname ? normalizeCodeToken(secondSurname) : '';
     const seeds = [
-      `${normalizedName}_${normalizedLastName}`,
-      `${normalizedLastName}_${normalizedName}`,
+      `${normalizedName}_${normalizedFirstSurname}`,
+      `${normalizedFirstSurname}_${normalizedName}`,
     ];
+
+    if (normalizedSecondSurname) {
+      seeds.push(`${normalizedName}_${normalizedSecondSurname}`);
+    }
     const suggestions: string[] = [];
     const seenSuggestions = new Set<string>();
 
@@ -226,12 +227,10 @@ export class AuthService {
     }
 
     while (suggestions.length < AuthService.SUGGESTION_BATCH_SIZE) {
-      const randomSuffix = generateRandomNumericSuffix(normalizedName);
-      const baseName = suggestions.length % 2 === 0 ? normalizedName : normalizedLastName;
-      const suggestion = await this.findAvailableCode(
-        `${baseName}_${randomSuffix}`,
-        seenSuggestions,
-      );
+      const baseName = suggestions.length % 2 === 0 ? normalizedName : normalizedFirstSurname;
+      const suggestion = await this.findAvailableCode(baseName, seenSuggestions, {
+        suffixFirst: true,
+      });
       suggestions.push(suggestion);
       seenSuggestions.add(suggestion);
     }
@@ -239,52 +238,38 @@ export class AuthService {
     return suggestions;
   }
 
-  private async ensureCodeIsAvailable(value: string): Promise<string> {
-    const code = toValidCodeLength(value);
-    const exists = await this.codeExists(code);
+  /**
+   * Same error for unknown email and wrong password, so callers can't tell which accounts exist.
+   */
+  private async validateCredentials(email: string, password: string): Promise<User> {
+    const user = await this.authRepo.findByEmail(email);
+    const isPasswordValid = user ? await comparePassword(password, user.password) : false;
 
-    if (exists) {
-      throw new ConflictException('Code already exists');
+    if (!user || !isPasswordValid) {
+      throw new BadRequestException('Email or password is incorrect');
     }
 
-    return code;
+    return user;
   }
 
-  private async generateToken({
-    userId,
-    userCode,
-  }: {
-    userId: User['id'];
-    userCode: User['code'];
-  }): Promise<string> {
-    return await this.jwtService.signAsync({
-      jti: randomUUID(),
-      sub: userId,
-      code: userCode,
-    });
-  }
-
-  private async generateUniqueCode(factory: () => string): Promise<string> {
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const code = toValidCodeLength(factory());
-
-      if (!(await this.codeExists(code))) {
-        return code;
-      }
-    }
-
-    throw new ConflictException('Unable to generate a unique code');
-  }
-
-  private async findAvailableCode(seed: string, exclude: Set<string>): Promise<string> {
+  /**
+   * Tries the plain seed first (unless `suffixFirst`), then `seed_<4 digits>` variants.
+   * The seed is trimmed to fit the suffix, so long names still get distinct candidates.
+   */
+  private async findAvailableCode(
+    seed: string,
+    exclude: Set<string>,
+    { suffixFirst = false }: { suffixFirst?: boolean } = {},
+  ): Promise<string> {
     let attempt = 0;
 
     while (attempt < 20) {
-      const candidate = toValidCodeLength(
-        attempt === 0 ? seed : `${seed}_${generateRandomNumericSuffix(seed)}`,
-      );
+      const candidate =
+        attempt === 0 && !suffixFirst
+          ? toValidCodeLength(seed)
+          : toValidCodeWithSuffix(seed, generateRandomNumericSuffix());
 
-      if (!exclude.has(candidate) && !(await this.codeExists(candidate))) {
+      if (!exclude.has(candidate) && !(await this.usersRepo.existsByCode(candidate))) {
         return candidate;
       }
 
@@ -292,14 +277,5 @@ export class AuthService {
     }
 
     throw new ConflictException('Unable to generate enough unique code suggestions');
-  }
-
-  private async codeExists(code: string): Promise<boolean> {
-    const existingCode = await this.prisma.user.findUnique({
-      where: { code },
-      select: { id: true },
-    });
-
-    return Boolean(existingCode);
   }
 }

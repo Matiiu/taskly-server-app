@@ -1,12 +1,11 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 
-import { PrismaService } from '@/prisma/prisma.service';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import { CreateTaskInput } from '@/tasks/dto/create-task.input';
 import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';
 import { TaskDetailType } from '@/tasks/entities/task-detail.type';
-import type { Prisma, User, Task } from 'generated/prisma/client';
+import type { User, Workspace } from 'generated/prisma/client';
 import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.constants';
 import { paginationMeta } from '@/common/utils/pagination.util';
 import { PaginatedTaskSummaryType } from './entities/paginated-task-summary.type';
@@ -14,44 +13,35 @@ import { StatusesService } from '@/statuses/statuses.service';
 import { CategoriesService } from '@/categories/categories.service';
 import { TaskListItemType } from '@/tasks/entities/task-list.type';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
-
-const DEFAULT_TASK_SELECT = {
-  id: true,
-  userId: true,
-  title: true,
-  description: true,
-  dueDate: true,
-  createdAt: true,
-  updatedAt: true,
-  status: { select: { id: true, name: true, color: true } },
-  category: { select: { id: true, name: true, color: true } },
-} satisfies Prisma.TaskSelect;
-
-type TaskWithRelations = Prisma.TaskGetPayload<{
-  select: typeof DEFAULT_TASK_SELECT;
-}>;
+import { TasksRepository, type TaskListRow, type TaskWithRelations } from './tasks.repository';
+import { TasksFiltersInput } from './dto/tasks-filters.input';
+import { TaskRelation } from '@/tasks/enums/task-relation.enums';
 
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly tasksRepo: TasksRepository,
     private readonly eventEmitter: AppEventEmitterService,
     private readonly statusesService: StatusesService,
     private readonly categoriesService: CategoriesService,
   ) {}
 
-  async create(userId: User['id'], input: CreateTaskInput): Promise<TaskDetailType> {
+  async create(
+    userId: User['id'],
+    workspaceId: Workspace['id'],
+    input: CreateTaskInput,
+  ): Promise<TaskDetailType> {
     try {
-      const task = await this.prisma.task.create({
-        select: DEFAULT_TASK_SELECT,
-        data: {
-          title: input.title,
-          description: input.description,
-          dueDate: input.dueDate,
-          userId,
-        },
+      const task = await this.tasksRepo.create({
+        title: input.title,
+        description: input.description,
+        dueDate: input.dueDate,
+        createdById: userId,
+        sequenceNumber: 1,
+        workspaceId,
+        statusId: null,
       });
 
       this.eventEmitter.emitAuditLog({
@@ -70,7 +60,7 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(task, userId);
+      return this.toDetail(task, userId);
     } catch (e) {
       this.logger.error('Error creating task', e);
       throw new BadRequestException('Failed to create task');
@@ -79,75 +69,43 @@ export class TasksService {
 
   async findMany(
     userId: User['id'],
-    pagination: PaginationArgsInput = {},
+    { limit = LIMIT_DEFAULT, page = PAGE_DEFAULT, sortOrder = 'desc' }: PaginationArgsInput = {},
+    { search = null, relations }: TasksFiltersInput = {},
   ): Promise<PaginatedTaskSummaryType> {
-    const {
-      limit = LIMIT_DEFAULT,
-      page = PAGE_DEFAULT,
-      query = null,
-      sortOrder = 'desc',
-    } = pagination;
-    const where = {
+    const { tasks, total } = await this.tasksRepo.findPageForUser({
+      limit,
+      page,
+      sortOrder,
+      userId,
+      search,
+      relations,
       active: true,
-      OR: [{ userId }, { assignees: { some: { userId } } }],
-      ...(query && { title: { contains: query, mode: 'insensitive' as const } }),
-    };
-    const [total, tasks] = await this.prisma.$transaction([
-      this.prisma.task.count({ where }),
-      this.prisma.task.findMany({
-        skip: (page - 1) * limit,
-        take: limit,
-        where,
-        select: DEFAULT_TASK_SELECT,
-        orderBy: [{ createdAt: sortOrder }],
-      }),
-    ]);
+    });
+
     return {
-      tasks: tasks.map((task) => this.toTaskListItemResponse(task)),
+      tasks: tasks.map((task) => this.toListItem(task, userId)),
       meta: paginationMeta(total, page, limit),
     };
   }
 
-  async findOne(userId: User['id'], id: Task['id']): Promise<TaskDetailType> {
-    const task = await this.prisma.task.findFirst({
-      where: {
-        id,
-        OR: [{ userId }, { assignees: { some: { userId } } }],
-        active: true,
-      },
-      select: DEFAULT_TASK_SELECT,
-    });
-
-    if (!task) {
-      throw new NotFoundException('Task not found');
-    }
-
-    return this.toTaskResponse(task, userId);
-  }
-
+  /**
+   * Updates a task that was already loaded and authorized (PolicyGuard + @CurrentTask()).
+   */
   async update(
-    id: Task['id'],
+    existingTask: TaskWithRelations,
     userId: User['id'],
     input: Partial<CreateTaskInput>,
   ): Promise<TaskDetailType> {
-    const existingTask = await this.prisma.task.findUniqueOrThrow({
-      where: { id },
-      select: DEFAULT_TASK_SELECT,
-    });
-
     try {
-      const updatedTask = await this.prisma.task.update({
-        where: { id },
-        select: DEFAULT_TASK_SELECT,
-        data: {
-          title: input.title,
-          description: input.description,
-          dueDate: input.dueDate,
-        },
+      const updatedTask = await this.tasksRepo.update(existingTask.id, {
+        title: input.title,
+        description: input.description,
+        dueDate: input.dueDate,
       });
 
       this.eventEmitter.emitAuditLog({
-        userId: existingTask.userId,
+        // The user who made the change, not the creator: assignees with TASK_UPDATE can update too
+        userId,
         action: 'UPDATE_TASK',
         entityId: existingTask.id,
         entity: 'Task',
@@ -170,36 +128,29 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(updatedTask, userId);
+      return this.toDetail(updatedTask, userId);
     } catch (e) {
       this.logger.error('Error updating task', e);
       throw new BadRequestException('Failed to update task');
     }
   }
 
+  /**
+   * Changes the status of a task that was already loaded and authorized (PolicyGuard + @CurrentTask()).
+   */
   async updateStatus(
-    id: Task['id'],
+    userTask: TaskWithRelations,
     userId: User['id'],
     input: UpdateTaskStatusInput,
   ): Promise<TaskDetailType> {
-    const userTask = await this.prisma.task.findUniqueOrThrow({
-      where: { id },
-      select: { statusId: true, ...DEFAULT_TASK_SELECT },
-    });
-
-    const status = await this.statusesService.findByIdOrNameOrCreate(userId, input);
-
-    if (userTask.statusId === status.id) return this.toTaskResponse(userTask, userId);
+    const status = await this.statusesService.create(userTask.workspaceId, input);
 
     try {
-      const updatedTask = await this.prisma.task.update({
-        where: { id },
-        select: DEFAULT_TASK_SELECT,
-        data: { statusId: status.id },
-      });
+      const updatedTask = await this.tasksRepo.update(userTask.id, { statusId: status.id });
 
       this.eventEmitter.emitAuditLog({
-        userId: userTask.userId,
+        // The user who made the change, not the creator: assignees can change the status too
+        userId,
         action: 'UPDATE_TASK',
         entityId: userTask.id,
         entity: 'Task',
@@ -222,36 +173,29 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(updatedTask, userId);
+      return this.toDetail(updatedTask, userId);
     } catch (e) {
       this.logger.error('Error updating task status', e);
       throw new BadRequestException('Failed to update task status');
     }
   }
 
+  /**
+   * Changes the category of a task that was already loaded and authorized (PolicyGuard + @CurrentTask()).
+   */
   async updateCategory(
-    id: Task['id'],
+    userTask: TaskWithRelations,
     userId: User['id'],
     input: UpdateTaskCategoryInput,
   ): Promise<TaskDetailType> {
-    const userTask = await this.prisma.task.findUniqueOrThrow({
-      where: { id },
-      select: { categoryId: true, ...DEFAULT_TASK_SELECT },
-    });
-
-    const category = await this.categoriesService.findByIdOrNameOrCreate(userId, input);
-
-    if (userTask.categoryId === category.id) return this.toTaskResponse(userTask, userId);
+    const category = await this.categoriesService.create(userTask.workspaceId, input);
 
     try {
-      const updatedTask = await this.prisma.task.update({
-        where: { id },
-        select: DEFAULT_TASK_SELECT,
-        data: { categoryId: category.id },
-      });
+      const updatedTask = await this.tasksRepo.update(userTask.id, { categoryId: category.id });
 
       this.eventEmitter.emitAuditLog({
-        userId: userTask.userId,
+        // The user who made the change, not the creator: anyone allowed by task.update can change it
+        userId,
         action: 'UPDATE_TASK',
         entityId: userTask.id,
         entity: 'Task',
@@ -274,30 +218,23 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(updatedTask, userId);
+      return this.toDetail(updatedTask, userId);
     } catch (e) {
       this.logger.error('Error updating task category', e);
       throw new BadRequestException('Failed to update task category');
     }
   }
 
-  async remove(id: Task['id']): Promise<TaskDetailType> {
-    const userTask = await this.prisma.task.findUniqueOrThrow({
-      where: {
-        id,
-      },
-      select: DEFAULT_TASK_SELECT,
-    });
-
+  /**
+   * Soft-deletes a task that was already loaded and authorized (PolicyGuard + @CurrentTask()).
+   */
+  async remove(userTask: TaskWithRelations, userId: User['id']): Promise<TaskDetailType> {
     try {
-      const removedTask = await this.prisma.task.update({
-        where: { id },
-        select: DEFAULT_TASK_SELECT,
-        data: { active: false },
-      });
+      const removedTask = await this.tasksRepo.deactivate(userTask.id);
 
       this.eventEmitter.emitAuditLog({
-        userId: userTask.userId,
+        // The user who made the change, not the creator: members with TASK_DELETE can delete too
+        userId,
         action: 'INACTIVATE_TASK',
         entityId: userTask.id,
         entity: 'Task',
@@ -320,37 +257,57 @@ export class TasksService {
         },
       });
 
-      return this.toTaskResponse(removedTask, userTask.userId);
+      return this.toDetail(removedTask, userId);
     } catch (e) {
       this.logger.error('Error removing task', e);
       throw new BadRequestException('Failed to remove task');
     }
   }
 
-  private toTaskResponse(task: TaskWithRelations, currentUserId: User['id']): TaskDetailType {
+  toDetail(task: TaskWithRelations, currentUserId: User['id']): TaskDetailType {
     return {
       id: task.id,
       title: task.title,
+      code: this.toTaskCode(task),
       description: task.description,
       dueDate: task.dueDate,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       status: task.status,
       category: task.category,
-      isOwner: task.userId === currentUserId,
+      relations: this.toRelations(task, currentUserId),
     };
   }
 
-  private toTaskListItemResponse(task: TaskWithRelations): TaskListItemType {
+  toListItem(task: TaskListRow, currentUserId: User['id']): TaskListItemType {
     return {
       id: task.id,
       title: task.title,
-      description: task.description,
+      code: this.toTaskCode(task),
       dueDate: task.dueDate,
-      createdAt: task.createdAt,
-      updatedAt: task.updatedAt,
       status: task.status,
       category: task.category,
+      relations: this.toRelations(task, currentUserId),
     };
+  }
+
+  private toTaskCode(task: Pick<TaskListRow, 'sequenceNumber' | 'workspace'>): string {
+    return `${task.workspace.taskPrefix}-${task.sequenceNumber}`;
+  }
+
+  /**
+   * Works for the detail (all assignees loaded) and the list (assignees pre-filtered to the user),
+   * since both only need to know whether the current user is among them.
+   */
+  private toRelations(
+    task: Pick<TaskListRow, 'createdById' | 'assignees'>,
+    currentUserId: User['id'],
+  ): TaskRelation[] {
+    const relations: TaskRelation[] = [];
+    if (task.createdById === currentUserId) relations.push(TaskRelation.CREATED);
+    if (task.assignees.some(({ userId }) => userId === currentUserId)) {
+      relations.push(TaskRelation.ASSIGNED);
+    }
+    return relations;
   }
 }

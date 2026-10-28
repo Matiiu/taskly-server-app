@@ -1,20 +1,23 @@
-import { Resolver, Mutation, Query, Args } from '@nestjs/graphql';
+import { Resolver, Mutation, Query, Args, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
+import type { User } from 'generated/prisma/client';
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { CurrentUser } from '@/auth/decorators/current-user.decorator';
 import { UsersService } from '@/users/users.service';
-import { UserExistsGuard } from '@/users/guards/user-exists.guard';
-import { UserExists } from '@/users/decorators/user-exists.decorator';
 import { UserType } from '@/users/entities/user.type';
 import { PaginatedUsersType } from '@/users/entities/paginated-users.type';
-import { UpdateUserInput } from './dto/update-user.type';
-import { UserActionType } from '@/users/entities/user-action.type';
+import { UpdateUserInput } from '@/users/dto/update-user.type';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
+import { MutationPayload } from '@/common/entities/mutation-payload.factory';
+import { TargetUserGuard } from '@/users/guards/target-user.guard';
+import { TargetUser } from '@/users/decorators/target-user.decorator';
+import type { SafeUser } from '@/users/types/users.type';
+
+const UpdateUserPayload = MutationPayload('UpdateUserPayload', {});
 
 @Resolver()
-@UseGuards(JwtAuthGuard, UserExistsGuard)
-@UserExists({ by: 'authSub' })
+@UseGuards(JwtAuthGuard)
 export class UsersResolver {
   constructor(private readonly usersService: UsersService) {}
 
@@ -27,27 +30,31 @@ export class UsersResolver {
   }
 
   @Query(() => UserType, { name: 'userByCode' })
-  @UserExists({ by: 'code' })
   findByCode(@Args('code') code: string): Promise<UserType> {
     return this.usersService.findByCode(code);
   }
 
   @Query(() => UserType, { name: 'me' })
-  findMe(@CurrentUser('code') code: string): Promise<UserType> {
-    return this.usersService.findByCode(code);
+  findMe(@CurrentUser() me: SafeUser): UserType {
+    return this.usersService.toUserType(me);
   }
 
-  @Mutation(() => UserActionType, { name: 'updateUser' })
-  @UserExists({ by: 'id' })
+  @Mutation(() => UpdateUserPayload, { name: 'updateUser' })
+  @UseGuards(TargetUserGuard)
   async update(
-    @Args('id') id: string,
+    // Not used here, but it must stay: it declares `id` in the schema and TargetUserGuard reads it
+    @Args('id', {
+      type: () => ID,
+      nullable: true,
+      description: 'User to update. Omit it to update yourself; only admins can update others.',
+    })
+    _id: User['id'] | null,
+    @TargetUser() target: SafeUser,
+    @CurrentUser() actor: SafeUser,
     @Args('input') input: UpdateUserInput,
-  ): Promise<UserActionType> {
-    const user = await this.usersService.update(id, input);
+  ): Promise<InstanceType<typeof UpdateUserPayload>> {
+    const user = await this.usersService.update(target, input, actor);
 
-    return {
-      message: `User ${user.code} updated successfully`,
-      user,
-    };
+    return { message: `User ${user.code} updated successfully` };
   }
 }

@@ -1,55 +1,52 @@
-import { UnauthorizedException, HttpException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard'; // adjust path
-import { PrismaService } from '@/prisma/prisma.service';
+import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { TokenService } from '@/auth/token.service';
 import type { JwtPayload } from '@/auth/types/auth.type';
 import { buildContext, buildReq } from '@/common/testing/factories/jwt-auth.factory';
 import { createJwtValidPayloadMock } from '@/common/testing/mocks/jwt-auth.mock';
+import { buildSafeUser } from '@/common/testing/factories/users.factory';
 
+// Token validation itself is covered in token.service.test.ts;
+// these tests only cover reading the header and attaching the session and user.
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
-  let jwtService: { verifyAsync: jest.Mock };
-  let prisma: { revokedToken: { findFirst: jest.Mock } };
-
-  // Build a fake GraphQL ExecutionContext.
-  // GqlExecutionContext.create(ctx).getContext() reads getArgByIndex(2),
-  // because GraphQL resolver args are [root, args, context, info].
-
+  let tokenService: { verify: jest.Mock };
   let validPayload: JwtPayload;
 
   beforeEach(async () => {
-    jwtService = { verifyAsync: jest.fn() };
-    prisma = { revokedToken: { findFirst: jest.fn() } };
+    tokenService = { verify: jest.fn() };
     validPayload = createJwtValidPayloadMock();
 
     const moduleRef = await Test.createTestingModule({
-      providers: [
-        JwtAuthGuard,
-        { provide: JwtService, useValue: jwtService },
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [JwtAuthGuard, { provide: TokenService, useValue: tokenService }],
     }).compile();
 
     guard = moduleRef.get<JwtAuthGuard>(JwtAuthGuard);
   });
 
-  it('allows the request and attaches the user when the token is valid and not revoked', async () => {
-    jwtService.verifyAsync.mockResolvedValue(validPayload);
-    prisma.revokedToken.findFirst.mockResolvedValue(null);
+  it('allows the request and attaches the verified session and user', async () => {
+    const user = buildSafeUser();
+    tokenService.verify.mockResolvedValue({ session: validPayload, user });
 
     const req = buildReq('Bearer good.token');
     const ctx = buildContext(req);
 
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
-    const user = (req as Record<string, unknown>).user as JwtPayload;
-    expect(user).toEqual(validPayload);
-    expect(prisma.revokedToken.findFirst).toHaveBeenCalledWith({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      where: { jti: validPayload.jti, expiresAt: { gt: expect.any(Date) } },
-      select: { id: true },
-    });
+    expect(tokenService.verify).toHaveBeenCalledWith('good.token');
+    expect(req).toMatchObject({ session: validPayload, user });
+  });
+
+  it('propagates the error when the token fails verification', async () => {
+    const error = new UnauthorizedException('Session ended. Please sign in again');
+    tokenService.verify.mockRejectedValue(error);
+
+    const req = buildReq('Bearer revoked.token');
+
+    await expect(guard.canActivate(buildContext(req))).rejects.toBe(error);
+    expect(req).not.toHaveProperty('user');
+    expect(req).not.toHaveProperty('session');
   });
 
   it('throws when the GraphQL request is missing', async () => {
@@ -64,6 +61,7 @@ describe('JwtAuthGuard', () => {
     await expect(guard.canActivate(ctx)).rejects.toThrow(
       new UnauthorizedException('Missing authorization token'),
     );
+    expect(tokenService.verify).not.toHaveBeenCalled();
   });
 
   it('throws when the auth scheme is not Bearer', async () => {
@@ -71,59 +69,7 @@ describe('JwtAuthGuard', () => {
     await expect(guard.canActivate(ctx)).rejects.toThrow(
       new UnauthorizedException('Missing authorization token'),
     );
-    expect(jwtService.verifyAsync).not.toHaveBeenCalled();
-  });
-
-  it('throws when the jti is missing from the payload', async () => {
-    jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', code: 'some-code' });
-    const ctx = buildContext(buildReq('Bearer no.jti'));
-    await expect(guard.canActivate(ctx)).rejects.toThrow(
-      new UnauthorizedException('Invalid authorization token'),
-    );
-  });
-
-  it('throws when the token has been revoked', async () => {
-    jwtService.verifyAsync.mockResolvedValue(validPayload);
-    prisma.revokedToken.findFirst.mockResolvedValue({ id: 'revoked-1' });
-
-    const ctx = buildContext(buildReq('Bearer revoked.token'));
-    await expect(guard.canActivate(ctx)).rejects.toThrow(
-      new UnauthorizedException('Session ended. Please sign in again'),
-    );
-  });
-
-  it('maps a TokenExpiredError to a friendly message', async () => {
-    jwtService.verifyAsync.mockRejectedValue({ name: 'TokenExpiredError' });
-    const ctx = buildContext(buildReq('Bearer expired.token'));
-    await expect(guard.canActivate(ctx)).rejects.toThrow(
-      new UnauthorizedException('Token expired. Please sign in again'),
-    );
-  });
-
-  it('maps a JsonWebTokenError to "Invalid authorization token"', async () => {
-    jwtService.verifyAsync.mockRejectedValue({ name: 'JsonWebTokenError' });
-    const ctx = buildContext(buildReq('Bearer malformed.token'));
-    await expect(guard.canActivate(ctx)).rejects.toThrow(
-      new UnauthorizedException('Invalid authorization token'),
-    );
-  });
-
-  it('falls back to "Invalid or expired token" for any other error', async () => {
-    jwtService.verifyAsync.mockRejectedValue(new Error('database is down'));
-    const ctx = buildContext(buildReq('Bearer weird.token'));
-    await expect(guard.canActivate(ctx)).rejects.toThrow(
-      new UnauthorizedException('Invalid or expired token'),
-    );
-  });
-
-  it('re-throws an HttpException raised inside the try block unchanged', async () => {
-    // verifyAsync succeeds, but findFirst throws an HttpException -> must be re-thrown as-is
-    jwtService.verifyAsync.mockResolvedValue(validPayload);
-    const boom = new HttpException('teapot', 418);
-    prisma.revokedToken.findFirst.mockRejectedValue(boom);
-
-    const ctx = buildContext(buildReq('Bearer good.token'));
-    await expect(guard.canActivate(ctx)).rejects.toBe(boom);
+    expect(tokenService.verify).not.toHaveBeenCalled();
   });
 
   it('throws when the authorization header is malformed', async () => {
@@ -131,5 +77,6 @@ describe('JwtAuthGuard', () => {
     await expect(guard.canActivate(ctx)).rejects.toThrow(
       new UnauthorizedException('Missing authorization token'),
     );
+    expect(tokenService.verify).not.toHaveBeenCalled();
   });
 });

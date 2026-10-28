@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EmitAuditLogInput } from '@/common/types/audit-payload.types';
+import type { AuditChangeMap, EmitAuditLogInput } from '@/common/types/audit-payload.types';
 
-import type { AuditAction } from 'generated/prisma/client';
 import { EVENTS } from '@/common/constants/events.constants';
 
 @Injectable()
@@ -13,7 +12,7 @@ export class AppEventEmitterService {
     this.eventEmitter.emit(event, payload);
   }
 
-  emitAuditLog<A extends AuditAction>(input: EmitAuditLogInput<A>): void {
+  emitAuditLog<A extends keyof AuditChangeMap>(input: EmitAuditLogInput<A>): void {
     this.emit(EVENTS.AUDIT_LOG, input);
   }
 }

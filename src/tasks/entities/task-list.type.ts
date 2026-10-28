@@ -3,6 +3,7 @@ import { Field, ObjectType } from '@nestjs/graphql';
 import type { Task } from 'generated/prisma/client';
 import { TaskStatusType } from '@/tasks/entities/task-status.type';
 import { TaskCategoryType } from '@/tasks/entities/task-category.type';
+import { TaskRelation } from '@/tasks/enums/task-relation.enums';
 
 @ObjectType()
 export class TaskListItemType implements Partial<Task> {
@@ -12,21 +13,19 @@ export class TaskListItemType implements Partial<Task> {
   @Field(() => String)
   title: string;
 
-  @Field(() => String, { nullable: true })
-  description?: string | null;
+  @Field(() => String)
+  code: string;
 
   @Field(() => Date, { nullable: true })
   dueDate?: Date | null;
-
-  @Field(() => Date)
-  createdAt: Date;
-
-  @Field(() => Date)
-  updatedAt: Date;
 
   @Field(() => TaskStatusType, { nullable: true })
   status: TaskStatusType | null;
 
   @Field(() => TaskCategoryType, { nullable: true })
   category: TaskCategoryType | null;
+
+  /** How the current user relates to the task: CREATED, ASSIGNED, or both. */
+  @Field(() => [TaskRelation])
+  relations: TaskRelation[];
 }

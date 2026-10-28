@@ -1,18 +1,10 @@
-import { Field, InputType } from '@nestjs/graphql';
-import { IsNotEmpty, IsString } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { InputType, PickType } from '@nestjs/graphql';
+
+import { RegisterInput } from '@/auth/dto/register.input';
 
 @InputType()
-export class SuggestCodesInput {
-  @Field(() => String)
-  @IsNotEmpty()
-  @IsString()
-  @Transform(({ value }: { value: string }) => value.trim())
-  name: string;
-
-  @Field(() => String)
-  @IsNotEmpty()
-  @IsString()
-  @Transform(({ value }: { value: string }) => value.trim())
-  lastName: string;
-}
+export class SuggestCodesInput extends PickType(RegisterInput, [
+  'name',
+  'firstSurname',
+  'secondSurname',
+] as const) {}

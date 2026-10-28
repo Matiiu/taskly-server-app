@@ -49,7 +49,11 @@ describe('TaskAssigneesService', () => {
         data: { taskId: task.id, userId: assignee.id },
       });
       expect(appEventEmitter.emitAuditLog).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'ASSIGN_TASK', entity: 'TaskAssignee', entityId: task.id }),
+        expect.objectContaining({
+          action: 'ASSIGN_TASK',
+          entity: 'TaskAssignee',
+          entityId: task.id,
+        }),
       );
     });
 
@@ -60,27 +64,27 @@ describe('TaskAssigneesService', () => {
       prisma.user.findFirst.mockResolvedValue(assignee);
       prisma.taskAssignee.findUnique.mockResolvedValue({ taskId: task.id, userId: assignee.id });
 
-      await expect(service.create('user-1', { taskId: task.id, assigneeId: assignee.id })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.create('user-1', { taskId: task.id, assigneeId: assignee.id }),
+      ).rejects.toThrow(BadRequestException);
       expect(prisma.taskAssignee.create).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when the task does not exist or is not owned by the user', async () => {
       prisma.task.findFirst.mockResolvedValue(null);
 
-      await expect(service.create('user-1', { taskId: 'missing', assigneeId: 'user-2' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.create('user-1', { taskId: 'missing', assigneeId: 'user-2' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('throws NotFoundException when the assignee user does not exist', async () => {
       prisma.task.findFirst.mockResolvedValue(buildTaskRow());
       prisma.user.findFirst.mockResolvedValue(null);
 
-      await expect(service.create('user-1', { taskId: 'task-1', assigneeId: 'missing' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.create('user-1', { taskId: 'task-1', assigneeId: 'missing' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('throws BadRequestException when the DB insert fails', async () => {
@@ -92,9 +96,9 @@ describe('TaskAssigneesService', () => {
       jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
       prisma.taskAssignee.create.mockRejectedValue(new Error('DB error'));
 
-      await expect(service.create('user-1', { taskId: task.id, assigneeId: assignee.id })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.create('user-1', { taskId: task.id, assigneeId: assignee.id }),
+      ).rejects.toThrow(BadRequestException);
       expect(appEventEmitter.emitAuditLog).not.toHaveBeenCalled();
     });
   });
@@ -153,14 +157,20 @@ describe('TaskAssigneesService', () => {
         where: { taskId_userId: { taskId: task.id, userId: assignee.id } },
       });
       expect(appEventEmitter.emitAuditLog).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'UNASSIGN_TASK', entity: 'TaskAssignee', entityId: task.id }),
+        expect.objectContaining({
+          action: 'UNASSIGN_TASK',
+          entity: 'TaskAssignee',
+          entityId: task.id,
+        }),
       );
     });
 
     it('throws NotFoundException when the task does not belong to the user', async () => {
       prisma.task.findFirst.mockResolvedValue(null);
 
-      await expect(service.remove('user-1', 'missing-task', 'user-2')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('user-1', 'missing-task', 'user-2')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws NotFoundException when the task assignee record does not exist', async () => {
@@ -178,7 +188,9 @@ describe('TaskAssigneesService', () => {
       jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
       prisma.taskAssignee.delete.mockRejectedValue(new Error('DB error'));
 
-      await expect(service.remove('user-1', task.id, assignee.id)).rejects.toThrow(BadRequestException);
+      await expect(service.remove('user-1', task.id, assignee.id)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(appEventEmitter.emitAuditLog).not.toHaveBeenCalled();
     });
   });

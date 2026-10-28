@@ -22,7 +22,7 @@ export class CommentsResolver {
 
   @Query(() => PaginatedCommentType, { name: 'myTaskComments' })
   findMyTaskComments(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('taskId', { type: () => String }) taskId: Task['id'],
     @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
     pagination?: PaginationArgsInput,
@@ -32,7 +32,7 @@ export class CommentsResolver {
 
   @Query(() => PaginatedCommentReplyType, { name: 'myCommentReplies' })
   findMyCommentReplies(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('commentId', { type: () => String }) commentId: Comment['id'],
     @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
     pagination?: PaginationArgsInput,
@@ -42,7 +42,7 @@ export class CommentsResolver {
 
   @Mutation(() => CommentActionType, { name: 'createMyTaskComment' })
   async createMyTaskComment(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('input') input: CreateCommentInput,
   ): Promise<CommentActionType> {
     const comment = await this.commentsService.create(userId, input);
@@ -55,7 +55,7 @@ export class CommentsResolver {
 
   @Mutation(() => CommentActionType, { name: 'updateMyTaskComment' })
   async updateMyTaskComment(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('id', { type: () => String }) id: Comment['id'],
     @Args('input') input: UpdateCommentInput,
   ): Promise<CommentActionType> {
@@ -69,7 +69,7 @@ export class CommentsResolver {
 
   @Mutation(() => CommentActionType, { name: 'removeMyTaskComment' })
   async removeMyTaskComment(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('id', { type: () => String }) id: Comment['id'],
   ): Promise<CommentActionType> {
     const comment = await this.commentsService.remove(userId, id);
@@ -82,7 +82,7 @@ export class CommentsResolver {
 
   @Mutation(() => CommentReplyActionType, { name: 'createMyCommentReply' })
   async createMyCommentReply(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('input') input: CreateCommentReplyInput,
   ): Promise<CommentReplyActionType> {
     const reply = await this.commentsService.createReply(userId, input);
@@ -95,7 +95,7 @@ export class CommentsResolver {
 
   @Mutation(() => CommentReplyActionType, { name: 'updateMyCommentReply' })
   async updateMyCommentReply(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('id', { type: () => String }) id: CommentReply['id'],
     @Args('input') input: UpdateCommentReplyInput,
   ): Promise<CommentReplyActionType> {
@@ -109,7 +109,7 @@ export class CommentsResolver {
 
   @Mutation(() => CommentReplyActionType, { name: 'removeMyCommentReply' })
   async removeMyCommentReply(
-    @CurrentUser('sub') userId: User['id'],
+    @CurrentUser('id') userId: User['id'],
     @Args('id', { type: () => String }) id: CommentReply['id'],
   ): Promise<CommentReplyActionType> {
     const reply = await this.commentsService.removeReply(userId, id);
