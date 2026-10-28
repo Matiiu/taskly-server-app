@@ -22,7 +22,7 @@ export const buildUser = (overrides: Partial<User> = {}): User => ({
   ...overrides,
 });
 
-/** A user as UsersRepository/AuthRepository reads it: without the password. */
+/** A user as UsersRepository/LoginRepository reads it: without the password. */
 export const buildSafeUser = (overrides: Partial<SafeUser> = {}): SafeUser => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { password: _password, ...user } = buildUser(overrides);

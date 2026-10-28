@@ -1,7 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { PolicyGuard } from '@/authorization/guards/policy.guard';
 import { CategoriesResolver } from '@/categories/categories.resolver';
 import { CategoriesService } from '@/categories/categories.service';

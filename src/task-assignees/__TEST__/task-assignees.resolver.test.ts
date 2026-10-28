@@ -1,7 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { buildUser } from '@/common/testing/factories/users.factory';
 import { createTaskAssigneesServiceMock } from '@/common/testing/mocks/task-assignees-service.mock';
 import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';

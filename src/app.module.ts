@@ -6,7 +6,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { GraphqlConfig } from '@/config/graphql/graphql.config';
-import { AuthModule } from '@/auth/auth.module';
+import { LoginModule } from '@/login/login.module';
 import { UsersModule } from '@/users/users.module';
 import { TasksModule } from '@/tasks/tasks.module';
 import { AuditLogModule } from '@/audit-log/audit-log.module';
@@ -26,7 +26,7 @@ import '@/common/enums/global.enum';
     GraphQLModule.forRoot<ApolloDriverConfig>(GraphqlConfig),
     PrismaModule,
     CommonModule,
-    AuthModule,
+    LoginModule,
     UsersModule,
     WorkspaceModule,
     TasksModule,

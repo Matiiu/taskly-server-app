@@ -2,8 +2,8 @@ import { Resolver, Mutation, Query, Args, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import type { User } from 'generated/prisma/client';
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
-import { CurrentUser } from '@/auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
+import { CurrentUser } from '@/login/decorators/current-user.decorator';
 import { UsersService } from '@/users/users.service';
 import { UserType } from '@/users/entities/user.type';
 import { PaginatedUsersType } from '@/users/entities/paginated-users.type';

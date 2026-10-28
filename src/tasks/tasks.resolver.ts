@@ -1,9 +1,9 @@
 import { Resolver, Mutation, Args, Query, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
-import { CurrentUser } from '@/auth/decorators/current-user.decorator';
+import { CurrentUser } from '@/login/decorators/current-user.decorator';
 import { TasksService } from '@/tasks/tasks.service';
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { CreateTaskInput } from '@/tasks/dto/create-task.input';
 import { UpdateTaskStatusInput } from '@/tasks/dto/update-task-status.input';
 import { UpdateTaskCategoryInput } from '@/tasks/dto/update-task-category.input';

@@ -36,7 +36,7 @@ type CategorySnapshot = Pick<Category, 'id' | 'name' | 'color'>;
 type CommentSnapshot = Pick<Comment, 'id' | 'content' | 'taskId' | 'edited' | 'active'>;
 
 export type AuditChangeMap = {
-  // Auth actions — minimal info is enough
+  // Login actions — minimal info is enough
   LOGIN_USER: { before: null; after: UserMinimalSnapshot };
   LOGOUT_USER: { before: UserMinimalSnapshot; after: null };
   RECOVER_PASSWORD: { before: UserMinimalSnapshot; after: UserMinimalSnapshot };

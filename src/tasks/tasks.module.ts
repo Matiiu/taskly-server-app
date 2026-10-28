@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { JwtAuthModule } from '@/auth/jwt-auth.module';
+import { JwtAuthModule } from '@/login/jwt-auth.module';
 import { TasksResolver } from '@/tasks/tasks.resolver';
 import { TasksService } from '@/tasks/tasks.service';
 import { StatusesModule } from '@/statuses/statuses.module';

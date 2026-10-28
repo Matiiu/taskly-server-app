@@ -1,8 +1,8 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
-import { CurrentUser } from '@/auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
+import { CurrentUser } from '@/login/decorators/current-user.decorator';
 import { CategoriesService } from '@/categories/categories.service';
 import { PaginatedCategoriesType } from '@/categories/entities/paginated-categories.type';
 import { CategoryActionType } from '@/categories/entities/category-action.type';

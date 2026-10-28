@@ -48,7 +48,7 @@ Data flow is one-way: `Resolver -> Service -> Repository -> Prisma`. A layer nev
   }
   ```
 
-  Only add fields to a payload when the client cannot get the data any other way (e.g. the auth `token`).
+  Only add fields to a payload when the client cannot get the data any other way (e.g. the login `token`).
 
 - Protect resolvers with `@UseGuards(JwtAuthGuard)` at class level. Workspace-scoped operations add `@Can('<resource>.<action>')` + `@UseGuards(PolicyGuard)`; policies live in `src/authorization/policies/`.
 - Get the authenticated user with `@CurrentUser()` (the user without its password, loaded by `JwtAuthGuard`) or one field with `@CurrentUser('id')`. Use `@CurrentSession('jti')` only when you need the token itself (e.g. logout). Never read the raw request context in a resolver.
@@ -74,7 +74,7 @@ Data flow is one-way: `Resolver -> Service -> Repository -> Prisma`. A layer nev
 - No business rules and no Nest HTTP exceptions. Return `null` when not found and let the service decide.
 - Scope every query by its owner (e.g. `workspaceId`) when the entity belongs to one.
 - Export input data types next to the repository (`export type CreateCategoryData = Pick<Category, ...>`).
-- **Passwords stay in auth.** `UsersRepository` always returns `SafeUser` (`omit: OMIT_PASSWORD`). Only `AuthRepository` may read or write the password hash: its `findById`/`findByEmail` return the full `User` (password and inactive users included), plus `updatePassword`. Call them as `authRepo.findBy...` so the source is clear.
+- **Passwords stay in login.** `UsersRepository` always returns `SafeUser` (`omit: OMIT_PASSWORD`). Only `LoginRepository` may read or write the password hash: its `findById`/`findByEmail` return the full `User` (password and inactive users included), plus `updatePassword`. Call them as `loginRepo.findBy...` so the source is clear.
 
 ### Module rules
 
@@ -157,7 +157,7 @@ Format (all in English):
 ```
 
 - The title is **72 characters max, emoji included**. Imperative mood, lowercase, no period.
-- The scope is the affected feature/module when there is one (`auth`, `tasks`, `categories`, ...).
+- The scope is the affected feature/module when there is one (`login`, `tasks`, `categories`, ...).
 - The body is mandatory and describes the changes made.
 
 | Emoji | Type       | Use for                                                 |
@@ -177,10 +177,10 @@ Format (all in English):
 Example:
 
 ```text
-🐛 fix(auth): fix register error
+🐛 fix(login): fix register error
 
 Register failed when the document already existed because the unique
-violation was not caught. AuthService now maps it to a ConflictException.
+violation was not caught. LoginService now maps it to a ConflictException.
 ```
 
 ## Agents
