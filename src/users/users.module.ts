@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { JwtAuthModule } from '@/auth/jwt-auth.module';
+import { JwtAuthModule } from '@/login/jwt-auth.module';
 import { UsersResolver } from '@/users/users.resolver';
 import { UsersService } from '@/users/users.service';
 import { UsersRepository } from '@/users/users.repository';

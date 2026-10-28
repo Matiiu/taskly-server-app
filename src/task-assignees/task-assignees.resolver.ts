@@ -1,8 +1,8 @@
 import { Resolver, Mutation, Query, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
-import { CurrentUser } from '@/auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
+import { CurrentUser } from '@/login/decorators/current-user.decorator';
 import { AddTaskAssigneeInput } from '@/task-assignees/dto/add-task-assignee.input';
 import { TaskAssigneeActionType } from '@/task-assignees/entities/task-assignee-action.type';
 import { PaginatedTaskAssigneesType } from '@/task-assignees/entities/paginated-task-assignees.type';

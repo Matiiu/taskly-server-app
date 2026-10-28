@@ -54,7 +54,7 @@ src/
 ├── config/                 # GraphQL + JWT configuration
 ├── common/                 # Shared enums, dto, utils, event emitter, test utilities
 ├── prisma/                 # PrismaModule / PrismaService
-├── auth/                   # Register/login/logout, guards, decorators, JWT
+├── login/                  # Register/login/logout, guards, decorators, JWT
 ├── users/                  # User CRUD & profile
 ├── categories/              # Task categories
 ├── statuses/                # Task statuses (kanban-style columns)

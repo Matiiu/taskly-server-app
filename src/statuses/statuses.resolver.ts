@@ -1,11 +1,11 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 
 import { StatusesService } from '@/statuses/statuses.service';
 import { PaginatedStatusesType } from '@/statuses/entities/paginated-statuses.type';
 import type { User, Status, Workspace } from 'generated/prisma/client';
-import { CurrentUser } from '@/auth/decorators/current-user.decorator';
+import { CurrentUser } from '@/login/decorators/current-user.decorator';
 import { StatusType } from '@/statuses/entities/status.type';
 import { UpdateStatusColorInput } from '@/statuses/dto/update-status-color.input';
 import { StatusActionType } from '@/statuses/entities/status-action.type';

@@ -1,7 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { CommentsResolver } from '@/comments/comments.resolver';
 import { CommentsService } from '@/comments/comments.service';
 import { buildComment, buildCommentReply } from '@/common/testing/factories/domain.factory';

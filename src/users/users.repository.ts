@@ -33,7 +33,7 @@ export type UpdateUserData = Pick<
   | 'phoneCountryCode'
 >;
 
-/** Never returns the password hash: credential reads and writes live in AuthRepository. */
+/** Never returns the password hash: credential reads and writes live in LoginRepository. */
 @Injectable()
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}

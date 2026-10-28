@@ -1,5 +1,5 @@
 import type { Workspace } from 'generated/prisma/client';
-import type { AuthenticatedRequest } from '@/auth/types/auth.type';
+import type { AuthenticatedRequest } from '@/login/types/login.type';
 import type { TaskWithRelations } from '@/tasks/tasks.repository';
 
 export type AuthorizedRequest = AuthenticatedRequest & {

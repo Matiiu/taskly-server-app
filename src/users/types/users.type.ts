@@ -1,6 +1,6 @@
 import type { User } from 'generated/prisma/client';
 import type { PaginationMeta } from '@/common/types/pagination.type';
-import type { AuthenticatedRequest } from '@/auth/types/auth.type';
+import type { AuthenticatedRequest } from '@/login/types/login.type';
 import { UserType } from '@/users/entities/user.type';
 
 export type PaginatedUsers = {
