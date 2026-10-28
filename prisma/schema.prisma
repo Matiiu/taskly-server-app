@@ -1,7 +1,8 @@
 generator client {
-  provider     = "prisma-client"
-  output       = "../generated/prisma"
-  moduleFormat = "cjs"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  moduleFormat    = "cjs"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -130,7 +131,7 @@ model User {
   documentType      DocumentType
   documentNumber    String
   code              String       @unique
-  email             String       @unique
+  email             String
   phoneNumber       String?
   phoneCountryCode  String?
   password          String
@@ -139,6 +140,10 @@ model User {
   active            Boolean      @default(true)
   /// Tokens issued before this moment are rejected (ends every session at once).
   sessionsRevokedAt DateTime?
+  /// Deadline to recover a deleted account. Null while the account is active.
+  recoveryDate      DateTime?
+  /// Set once the recovery deadline passed: frees the email and document for a new account.
+  releasedAt        DateTime?
   source            AuthProvider
   createdTasks      Task[]       @relation("TasksCreated")
 
@@ -152,21 +157,27 @@ model User {
   assignedTasks        TaskAssignee[]    @relation("TaskAssignments")
   tasksAssignedByMe    TaskAssignee[]    @relation("TaskAssignedBy")
 
+  /// Email and document are unique among accounts that are not released (active or still recoverable).
   /// A document number is unique per document type (the same number can exist under another type).
-  @@unique([documentType, documentNumber])
+  @@unique([email], where: raw("\"releasedAt\" IS NULL"))
+  @@unique([documentType, documentNumber], where: raw("\"releasedAt\" IS NULL"))
 }
 
 model Workspace {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   name             String
   code             String
   taskPrefix       String
-  lastTaskSequence Int      @default(0)
+  lastTaskSequence Int       @default(0)
   description      String?
-  isDefault        Boolean  @default(false)
-  active           Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  isDefault        Boolean   @default(false)
+  active           Boolean   @default(true)
+  /// Deadline to recover a deleted workspace. Null while the workspace is active.
+  recoveryDate     DateTime?
+  /// Set once the recovery deadline passed: frees the name for a new workspace.
+  releasedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -180,7 +191,8 @@ model Workspace {
 
   @@unique([ownerId, code])
   @@unique([ownerId, taskPrefix])
-  @@unique([ownerId, name])
+  /// The name is unique per owner among workspaces that are not released (active or still recoverable).
+  @@unique([ownerId, name], where: raw("\"releasedAt\" IS NULL"))
   @@index([ownerId, active])
 }
 
