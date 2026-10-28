@@ -53,6 +53,23 @@ export class TaskRolesRepository {
     return { taskRoles, total };
   }
 
+  async existsInWorkspace(workspaceId: Workspace['id'], db: Db = this.prisma): Promise<boolean> {
+    const taskRole = await db.taskRole.findFirst({ where: { workspaceId }, select: { id: true } });
+    return taskRole !== null;
+  }
+
+  /** Returns how many task roles were created. */
+  async createMany(
+    workspaceId: Workspace['id'],
+    taskRoles: Pick<TaskRole, 'name' | 'description' | 'permissions' | 'isSystem'>[],
+    db: Db = this.prisma,
+  ): Promise<number> {
+    const { count } = await db.taskRole.createMany({
+      data: taskRoles.map((taskRole) => ({ workspaceId, ...taskRole })),
+    });
+    return count;
+  }
+
   findById(
     workspaceId: Workspace['id'],
     id: TaskRole['id'],

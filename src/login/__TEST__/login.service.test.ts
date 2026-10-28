@@ -1,4 +1,5 @@
 import { Prisma } from 'generated/prisma/client';
+import type { Workspace } from 'generated/prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -9,7 +10,7 @@ import { TokenService } from '@/login/token.service';
 import { UsersRepository } from '@/users/users.repository';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UsersService } from '@/users/users.service';
-import { StatusesService } from '@/statuses/statuses.service';
+import { WorkspaceService } from '@/workspace/workspace.service';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import * as hashUtil from '@/common/utils/hash.util';
 import { DocumentType } from 'generated/prisma/enums';
@@ -17,7 +18,7 @@ import { buildUser, buildUserType } from '@/common/testing/factories/users.facto
 import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
 import { createJwtServiceMock } from '@/common/testing/mocks/jwt-service.mock';
 import { createUsersServiceMock } from '@/common/testing/mocks/users-service.mock';
-import { createStatusesServiceMock } from '@/common/testing/mocks/statuses-service.mock';
+import { createWorkspaceServiceMock } from '@/common/testing/mocks/workspace-service.mock';
 import { createAppEventEmitterMock } from '@/common/testing/mocks/app-event-emitter.mock';
 import { MOCK_TOKEN } from '@/common/testing/constants';
 import { USER_DEACTIVATED_MESSAGE } from '@/users/utils/user-status.util';
@@ -25,7 +26,7 @@ import { USER_DEACTIVATED_MESSAGE } from '@/users/utils/user-status.util';
 let prismaMock: ReturnType<typeof createPrismaMock>;
 let jwtServiceMock: ReturnType<typeof createJwtServiceMock>;
 let usersServiceMock: ReturnType<typeof createUsersServiceMock>;
-let statusesServiceMock: ReturnType<typeof createStatusesServiceMock>;
+let workspaceServiceMock: ReturnType<typeof createWorkspaceServiceMock>;
 let appEventEmitterMock: ReturnType<typeof createAppEventEmitterMock>;
 
 describe('LoginService', () => {
@@ -41,7 +42,7 @@ describe('LoginService', () => {
     );
     jwtServiceMock = createJwtServiceMock(MOCK_TOKEN);
     usersServiceMock = createUsersServiceMock();
-    statusesServiceMock = createStatusesServiceMock();
+    workspaceServiceMock = createWorkspaceServiceMock();
     appEventEmitterMock = createAppEventEmitterMock();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -53,7 +54,7 @@ describe('LoginService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: UsersService, useValue: usersServiceMock },
-        { provide: StatusesService, useValue: statusesServiceMock },
+        { provide: WorkspaceService, useValue: workspaceServiceMock },
         { provide: AppEventEmitterService, useValue: appEventEmitterMock },
       ],
     }).compile();
@@ -77,23 +78,42 @@ describe('LoginService', () => {
       phoneCountryCode: null,
     };
 
-    it('should register a new user successfully', async () => {
+    const workspace = { id: 'workspace-id-1', ownerId: 'user-id-1' } as Workspace;
+
+    it('creates the user and workspace in one transaction and notifies after the commit', async () => {
       const user = buildUser();
       const userType = buildUserType(user);
 
       prismaMock.user.findUnique.mockResolvedValueOnce(null); // email check
       prismaMock.user.create.mockResolvedValue(user);
+      workspaceServiceMock.createDefault.mockResolvedValue(workspace);
       usersServiceMock.toUserType.mockReturnValue(userType);
-
       jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue('hashed-password');
 
       const result = await service.register(registerInput);
 
       expect(result).toEqual(userType);
+      expect(usersServiceMock.toUserType).toHaveBeenCalledWith(user);
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
       expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
+      expect(workspaceServiceMock.createDefault).toHaveBeenCalledWith(user.id, prismaMock);
+      expect(workspaceServiceMock.notifyCreated).toHaveBeenCalledWith(workspace, user.id);
       expect(appEventEmitterMock.emitAuditLog).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'REGISTER_USER', userId: user.id }),
       );
+    });
+
+    it('does not audit nor notify when the workspace creation fails', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(null);
+      prismaMock.user.create.mockResolvedValue(buildUser());
+      workspaceServiceMock.createDefault.mockRejectedValue(new Error('DB error'));
+      jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue('hashed-password');
+
+      await expect(service.register(registerInput)).rejects.toThrow(
+        new BadRequestException('Failed to create user'),
+      );
+      expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+      expect(workspaceServiceMock.notifyCreated).not.toHaveBeenCalled();
     });
 
     it('checks the document is free before creating the user', async () => {
@@ -131,20 +151,8 @@ describe('LoginService', () => {
       await expect(service.register(registerInput)).rejects.toThrow('User already exists');
     });
 
-    it('should throw ConflictException when provided code already exists', async () => {
-      prismaMock.user.findUnique
-        .mockResolvedValueOnce(null) // email check
-        .mockResolvedValueOnce({ id: 'other-user-id' }); // code already taken
-
-      const promise = service.register({ ...registerInput, code: '@taken1' });
-      await expect(promise).rejects.toThrow(ConflictException);
-      await expect(promise).rejects.toThrow('Code already exists');
-    });
-
     it('should throw BadRequestException when user creation fails', async () => {
-      prismaMock.user.findUnique
-        .mockResolvedValueOnce(null) // email check
-        .mockResolvedValueOnce(null); // code uniqueness
+      prismaMock.user.findUnique.mockResolvedValueOnce(null); // email check
       prismaMock.user.create.mockRejectedValue(new Error('DB error'));
 
       jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue('hashed-password');
