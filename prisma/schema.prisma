@@ -44,6 +44,9 @@ enum AuditAction {
   ADD_WORKSPACE_MEMBER
   REMOVE_WORKSPACE_MEMBER
   CHANGE_WORKSPACE_ROLE
+  CREATE_TASK_ROLE
+  UPDATE_TASK_ROLE
+  DELETE_TASK_ROLE
 }
 
 enum AuditEntity {
@@ -55,6 +58,7 @@ enum AuditEntity {
   Comment
   Workspace
   WorkspaceMember
+  TaskRole
 }
 
 enum AuthProvider {

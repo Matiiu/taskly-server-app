@@ -5,6 +5,7 @@ import {
   AuditEntity,
   AuthProvider,
   UserRole,
+  TaskPermission,
 } from 'generated/prisma/enums';
 import { SortOrder } from '@/common/enums/pagination.enum';
 import { TaskRelation } from '@/tasks/enums/task-relation.enums';
@@ -16,3 +17,4 @@ registerEnumType(UserRole, { name: 'UserRole' });
 registerEnumType(AuthProvider, { name: 'AuthProvider' });
 registerEnumType(SortOrder, { name: 'SortOrder' });
 registerEnumType(TaskRelation, { name: 'TaskRelation' });
+registerEnumType(TaskPermission, { name: 'TaskPermission' });

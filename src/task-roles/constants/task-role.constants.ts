@@ -1,0 +1,2 @@
+export const TASK_ROLE_NAME_MAX_LENGTH = 50;
+export const TASK_ROLE_DESCRIPTION_MAX_LENGTH = 255;
