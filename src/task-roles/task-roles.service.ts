@@ -17,6 +17,7 @@ import { UpdateTaskRoleInput } from '@/task-roles/dto/update-task-role.input';
 import { TaskRoleType } from '@/task-roles/entities/task-role.type';
 import { PaginatedTaskRolesType } from '@/task-roles/entities/paginated-task-roles.type';
 import type { TaskRole, User, Workspace } from 'generated/prisma/client';
+import { DEFAULT_TASK_ROLES } from '@/task-roles/constants/task-role.constants';
 
 @Injectable()
 export class TaskRolesService {
@@ -24,6 +25,23 @@ export class TaskRolesService {
     private readonly taskRolesRepo: TaskRolesRepository,
     private readonly eventEmitter: AppEventEmitterService,
   ) {}
+
+  /** Seeds the default task roles of a new workspace. Returns false if it already has roles. */
+  async createDefaultTaskRoles(workspaceId: Workspace['id']): Promise<boolean> {
+    if (await this.taskRolesRepo.existsInWorkspace(workspaceId)) return false;
+
+    const created = await this.taskRolesRepo.createMany(
+      workspaceId,
+      DEFAULT_TASK_ROLES.map(({ name, description, permissions }) => ({
+        name,
+        description,
+        permissions: [...permissions],
+        isSystem: true,
+      })),
+    );
+
+    return created === DEFAULT_TASK_ROLES.length;
+  }
 
   async findMany(
     workspaceId: Workspace['id'],
