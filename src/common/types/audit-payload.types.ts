@@ -1,6 +1,14 @@
 // common/types/audit-payload.types.ts
 import type { AuditLog } from 'generated/prisma/client';
-import type { User, Task, Status, Category, Comment } from 'generated/prisma/client';
+import type {
+  User,
+  Task,
+  Status,
+  Category,
+  Comment,
+  TaskRole,
+  Workspace,
+} from 'generated/prisma/client';
 
 // Reusable snapshots
 export type UserSnapshot = Pick<
@@ -26,8 +34,24 @@ type TaskSnapshot = Pick<Task, 'id' | 'title' | 'description' | 'dueDate'> & {
   status: StatusSnapshot | null;
   category: CategorySnapshot | null;
 };
-type TaskAssignedSnapshot = { task: TaskSnapshot; assignedUser: UserMinimalSnapshot };
-type TaskUnassignedSnapshot = { task: TaskSnapshot; unassignedUser: UserMinimalSnapshot };
+type TaskAssignedSnapshot = {
+  task: TaskSnapshot;
+  assignedUser: UserMinimalSnapshot;
+  role: TaskRoleMinimalSnapshot;
+};
+type TaskUnassignedSnapshot = {
+  task: TaskSnapshot;
+  unassignedUser: UserMinimalSnapshot;
+  role: TaskRoleMinimalSnapshot;
+};
+
+export type WorkspaceSnapshot = Pick<
+  Workspace,
+  'id' | 'name' | 'code' | 'taskPrefix' | 'description' | 'isDefault' | 'ownerId'
+>;
+
+export type TaskRoleSnapshot = Pick<TaskRole, 'id' | 'name' | 'description' | 'permissions'>;
+type TaskRoleMinimalSnapshot = Pick<TaskRole, 'id' | 'name'>;
 
 type StatusSnapshot = Pick<Status, 'id' | 'name' | 'color'>;
 
@@ -71,6 +95,14 @@ export type AuditChangeMap = {
   // Category actions
   UPDATE_COLOR_CATEGORY: { before: CategorySnapshot | null; after: CategorySnapshot };
   DELETE_CATEGORY: { before: CategorySnapshot; after: null };
+
+  // Workspace actions
+  CREATE_WORKSPACE: { before: null; after: WorkspaceSnapshot };
+
+  // Task role actions
+  CREATE_TASK_ROLE: { before: null; after: TaskRoleSnapshot };
+  UPDATE_TASK_ROLE: { before: TaskRoleSnapshot; after: TaskRoleSnapshot };
+  DELETE_TASK_ROLE: { before: TaskRoleSnapshot; after: null };
 };
 
 export type EmitAuditLogInput<A extends keyof AuditChangeMap> = {

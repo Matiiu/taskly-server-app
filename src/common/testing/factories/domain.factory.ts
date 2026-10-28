@@ -31,6 +31,8 @@ export const buildTask = (overrides: Partial<Task> = {}): Task => ({
   createdById: 'user-id-1',
   categoryId: 'category-id-1',
   statusId: 'status-id-1',
+  sequenceNumber: 1,
+  workspaceId: 'workspace-1',
   ...overrides,
 });
 

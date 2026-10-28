@@ -12,8 +12,10 @@ import { TasksModule } from '@/tasks/tasks.module';
 import { AuditLogModule } from '@/audit-log/audit-log.module';
 import { CommonModule } from '@/common/common.module';
 import { TaskAssigneesModule } from '@/task-assignees/task-assignees.module';
+import { TaskRolesModule } from '@/task-roles/task-roles.module';
 import { CommentsModule } from '@/comments/comments.module';
 import { WorkspaceModule } from '@/workspace/workspace.module';
+import { WorkspaceRolesModule } from '@/workspace-roles/workspace-roles.module';
 import '@/common/enums/global.enum';
 
 @Module({
@@ -29,7 +31,9 @@ import '@/common/enums/global.enum';
     LoginModule,
     UsersModule,
     WorkspaceModule,
+    WorkspaceRolesModule,
     TasksModule,
+    TaskRolesModule,
     TaskAssigneesModule,
     CommentsModule,
     AuditLogModule,

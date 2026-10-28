@@ -17,6 +17,8 @@ export const buildUser = (overrides: Partial<User> = {}): User => ({
   source: AuthProvider.LOCAL,
   active: true,
   sessionsRevokedAt: null,
+  recoveryDate: null,
+  releasedAt: null,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
   ...overrides,

@@ -34,8 +34,9 @@ export class TaskAssigneesResolver {
     @Args('taskId', { type: () => String }) taskId: Task['id'],
     @Args('pagination', { type: () => PaginationArgsInput, nullable: true })
     pagination?: PaginationArgsInput,
+    @Args('search', { type: () => String, nullable: true }) search?: string | null,
   ): Promise<PaginatedTaskAssigneesType> {
-    return this.taskAssigneesService.findMany(userId, taskId, pagination);
+    return this.taskAssigneesService.findMany(userId, taskId, pagination, search ?? null);
   }
 
   @Mutation(() => TaskAssigneeActionType, { name: 'removeMyTaskAssignee' })

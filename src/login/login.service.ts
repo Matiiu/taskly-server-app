@@ -4,9 +4,10 @@ import { RegisterInput } from '@/login/dto/register.input';
 import { AuthProvider } from 'generated/prisma/enums';
 import { SignInInput } from '@/login/dto/sign-in.input';
 import { UsersService } from '@/users/users.service';
-import { User } from 'generated/prisma/client';
+import type { User, Workspace } from 'generated/prisma/client';
 import { hashPassword, comparePassword } from '@/common/utils/hash.util';
-import { StatusesService } from '@/statuses/statuses.service';
+import { WorkspaceService } from '@/workspace/workspace.service';
+import type { SafeUser } from '@/users/types/users.type';
 import { RecoverPasswordInput } from '@/login/dto/recover-password.input';
 import { RecoverAccountInput } from '@/login/dto/recover-account.input';
 import { SuggestCodesInput } from '@/login/dto/suggest-codes.input';
@@ -37,7 +38,7 @@ export class LoginService {
     private readonly loginRepo: LoginRepository,
     private readonly usersRepo: UsersRepository,
     private readonly usersService: UsersService,
-    private readonly statusesService: StatusesService,
+    private readonly workspaceService: WorkspaceService,
     private readonly appEventEmitter: AppEventEmitterService,
   ) {}
 
@@ -50,23 +51,37 @@ export class LoginService {
 
     await this.usersService.assertDocumentAvailable(input.documentType, input.documentNumber);
 
+    const { createdUser, workspace } = await this.createUserWithWorkspace(input);
+
+    this.appEventEmitter.emitAuditLog({
+      userId: createdUser.id,
+      action: 'REGISTER_USER',
+      entityId: createdUser.id,
+      entity: 'User',
+      after: toUserSnapshot(createdUser),
+    });
+    // After the commit, so the background seeding never runs for a rolled-back workspace
+    this.workspaceService.notifyCreated(workspace, createdUser.id);
+
+    return this.usersService.toUserType(createdUser);
+  }
+
+  /** The user and its default workspace are saved together: if one fails, neither exists. */
+  private async createUserWithWorkspace(
+    input: RegisterInput,
+  ): Promise<{ createdUser: SafeUser; workspace: Workspace }> {
     try {
       const hashedPassword = await hashPassword(input.password);
-      const result = await this.usersRepo.create({
-        ...input,
-        password: hashedPassword,
-        source: AuthProvider.LOCAL,
-      });
 
-      const user = this.usersService.toUserType(result);
-      this.appEventEmitter.emitAuditLog({
-        userId: user.id,
-        action: 'REGISTER_USER',
-        entityId: user.id,
-        entity: 'User',
-        after: toUserSnapshot(result),
+      return await this.prisma.$transaction(async (tx) => {
+        const createdUser = await this.usersRepo.create(
+          { ...input, password: hashedPassword, source: AuthProvider.LOCAL },
+          tx,
+        );
+        const workspace = await this.workspaceService.createDefault(createdUser.id, tx);
+
+        return { createdUser, workspace };
       });
-      return user;
     } catch (e) {
       // Email, document or code taken (e.g. by an inactive user, or a concurrent registration)
       if (isUniqueViolation(e)) {
