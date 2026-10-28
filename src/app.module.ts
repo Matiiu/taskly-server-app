@@ -15,6 +15,7 @@ import { TaskAssigneesModule } from '@/task-assignees/task-assignees.module';
 import { TaskRolesModule } from '@/task-roles/task-roles.module';
 import { CommentsModule } from '@/comments/comments.module';
 import { WorkspaceModule } from '@/workspace/workspace.module';
+import { WorkspaceRolesModule } from '@/workspace-roles/workspace-roles.module';
 import '@/common/enums/global.enum';
 
 @Module({
@@ -30,6 +31,7 @@ import '@/common/enums/global.enum';
     LoginModule,
     UsersModule,
     WorkspaceModule,
+    WorkspaceRolesModule,
     TasksModule,
     TaskRolesModule,
     TaskAssigneesModule,
