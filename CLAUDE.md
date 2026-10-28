@@ -36,19 +36,23 @@ Data flow is one-way: `Resolver -> Service -> Repository -> Prisma`. A layer nev
 - Only receive args, apply guards/decorators, call **one** service method and return its result.
 - No `if` business rules, no Prisma, no repository injection, no data transformation.
 - **Queries** return the service result as-is (`PaginatedXType`, `XDetailType`, ...).
-- **Mutations return only a success message.** Use the `MutationPayload` factory with no extra fields:
+- **Mutations always return a success message + the affected data.** Use the `MutationPayload` factory with the mapped GraphQL type of the entity that was created, updated or deleted:
 
   ```ts
-  const CreateTaskPayload = MutationPayload('CreateTaskPayload', {});
+  const UpdateTaskStatusPayload = MutationPayload('UpdateTaskStatusPayload', { task: TaskDetailType });
 
-  @Mutation(() => CreateTaskPayload, { name: 'createTask' })
-  async create(...): Promise<InstanceType<typeof CreateTaskPayload>> {
-    const task = await this.tasksService.create(userId, workspaceId, input);
-    return { message: `Task ${task.title} created successfully` };
+  @Mutation(() => UpdateTaskStatusPayload, { name: 'updateTaskStatus' })
+  async updateStatus(...): Promise<InstanceType<typeof UpdateTaskStatusPayload>> {
+    const task = await this.tasksService.updateStatus(userId, workspaceId, id, input);
+    return { message: `Task ${task.title} status updated successfully`, task };
   }
   ```
 
-  Only add fields to a payload when the client cannot get the data any other way (e.g. the login `token`).
+  - The service returns the entity already mapped to its GraphQL type (e.g. `toTaskType`). The resolver only adds the `message`.
+  - Name the field after the entity (`task`, `category`, `user`), not `data`, so Apollo can update its cache by `__typename` + `id`.
+  - Return the entity **after** the change. Deletes return the deleted entity (at least its `id`).
+  - Never expose sensitive fields (e.g. return `SafeUser` types, never passwords).
+  - Mutations with no entity behind them (e.g. `logout`) return only the `message`. Extra values the client needs (e.g. the login `token`) go next to the `message`.
 
 - Protect resolvers with `@UseGuards(JwtAuthGuard)` at class level. Workspace-scoped operations add `@Can('<resource>.<action>')` + `@UseGuards(PolicyGuard)`; policies live in `src/authorization/policies/`.
 - Get the authenticated user with `@CurrentUser()` (the user without its password, loaded by `JwtAuthGuard`) or one field with `@CurrentUser('id')`. Use `@CurrentSession('jti')` only when you need the token itself (e.g. logout). Never read the raw request context in a resolver.
@@ -134,10 +138,9 @@ These modules predate the rules and still query Prisma outside a repository. Don
 
 - `src/users/users.service.ts` (`findMany`, the document check and the update itself)
 - `src/comments/comments.service.ts` (no repository yet)
-- `src/task-assignees/task-assignees.service.ts` (no repository yet)
 - `src/audit-log/audit-log.service.ts` (no repository yet)
 
-Some older mutations (e.g. categories, statuses) still return the entity next to `message`. New or modified mutations must return the message only.
+Some older mutations return only the `message`. When you touch one, make it return the affected entity next to the `message`.
 
 ## Git workflow
 
