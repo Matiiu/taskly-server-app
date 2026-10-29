@@ -21,9 +21,8 @@ export type UpdateTaskData = Partial<
   Pick<Task, 'title' | 'description' | 'dueDate' | 'statusId' | 'categoryId'>
 >;
 
-type FindPageForUserData = {
+type FindPageData = {
   userId: User['id'];
-  active?: boolean;
   page: number;
   limit: number;
   sortOrder: SortOrder;
@@ -64,12 +63,6 @@ const searchWhere = (search: string): Prisma.TaskWhereInput => {
   }
 
   return { OR: conditions };
-};
-
-type FindOneForUserData = {
-  id: Task['id'];
-  userId: User['id'];
-  active?: boolean;
 };
 
 export const DEFAULT_TASK_SELECT = {
@@ -154,21 +147,29 @@ export class TasksRepository {
     });
   }
 
-  async findPageForUser(
-    { userId, active, page, limit, sortOrder, search, relations }: FindPageForUserData,
-    db: Db = this.prisma,
-  ): Promise<{ tasks: TaskListRow[]; total: number }> {
+  /**
+   * Active tasks only, in any of the selected relations to the user.
+   * Not `db`-aware: the batch `$transaction([...])` form is not available on a transaction client.
+   */
+  async findPage({
+    userId,
+    page,
+    limit,
+    sortOrder,
+    search,
+    relations,
+  }: FindPageData): Promise<{ tasks: TaskListRow[]; total: number }> {
     const selectedRelations = relations?.length ? relations : Object.values(TaskRelation);
     // Relations and search each need their own OR, so they are combined with AND
     const where: Prisma.TaskWhereInput = {
-      ...(active !== undefined && { active }),
+      active: true,
       AND: [
         { OR: selectedRelations.map((relation) => RELATION_WHERE[relation](userId)) },
         ...(search?.trim() ? [searchWhere(search)] : []),
       ],
     };
 
-    const [total, tasks] = await db.$transaction([
+    const [total, tasks] = await this.prisma.$transaction([
       this.prisma.task.count({ where }),
       this.prisma.task.findMany({
         skip: (page - 1) * limit,
@@ -180,19 +181,5 @@ export class TasksRepository {
     ]);
 
     return { tasks, total };
-  }
-
-  findOne(
-    { id, userId, active }: FindOneForUserData,
-    db: Db = this.prisma,
-  ): Promise<TaskWithRelations | null> {
-    return db.task.findFirst({
-      where: {
-        id,
-        ...(active && { active }),
-        OR: [{ createdById: userId }, { assignees: { some: { userId } } }],
-      },
-      select: DEFAULT_TASK_SELECT,
-    });
   }
 }
