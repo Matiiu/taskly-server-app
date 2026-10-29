@@ -8,7 +8,9 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 export const Trim = () =>
   Transform(({ value }: { value: unknown }) => (isString(value) ? value.trim() : value));
 
-export const ToLowerCase = () => Transform(({ value }: { value: string }) => value.toLowerCase());
+/** " A@B " → " a@b " (non-strings are left for the validators to reject) */
+export const ToLowerCase = () =>
+  Transform(({ value }: { value: unknown }) => (isString(value) ? value.toLowerCase() : value));
 
 /** "  " → null, " a " → "a" */
 export const TrimToNull = () =>

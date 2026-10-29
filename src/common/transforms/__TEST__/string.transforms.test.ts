@@ -98,4 +98,8 @@ describe('ToLowerCase', () => {
   it('lowercases strings', () => {
     expect(plainToInstance(ToLowerCaseDto, { value: 'AbC' }).value).toBe('abc');
   });
+
+  it.each([[null], [undefined], [42]])('returns non-string %p unchanged', (input) => {
+    expect(plainToInstance(ToLowerCaseDto, { value: input }).value).toBe(input);
+  });
 });
