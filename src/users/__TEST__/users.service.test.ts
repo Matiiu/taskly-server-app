@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { UserNotFoundException } from '@/common/exceptions/user-not-found.exception';
+import type { Db } from '@/prisma/prisma.types';
 import { UsersService } from '@/users/users.service';
 import { UsersRepository } from '@/users/users.repository';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
@@ -10,6 +11,7 @@ import { LIMIT_DEFAULT, PAGE_DEFAULT } from '@/common/constants/pagination.const
 
 const USER_ID = 'user-id-1';
 const USER_CODE = '@johndoe';
+const TX = { tx: true } as unknown as Db;
 
 const createUsersRepositoryMock = () => ({
   findPage: jest.fn(),
@@ -17,6 +19,11 @@ const createUsersRepositoryMock = () => ({
   findByCode: jest.fn(),
   isExistingDocument: jest.fn(),
   update: jest.fn(),
+  existsByCode: jest.fn(),
+  create: jest.fn(),
+  deactivate: jest.fn(),
+  activate: jest.fn(),
+  release: jest.fn(),
 });
 
 describe('UsersService', () => {
@@ -116,6 +123,112 @@ describe('UsersService', () => {
       usersRepo.findById.mockResolvedValue(null);
 
       await expect(service.findByIdOrThrow(USER_ID)).rejects.toThrow(new UserNotFoundException());
+    });
+  });
+
+  describe('findById', () => {
+    it('returns the repository result', async () => {
+      const user = buildSafeUser();
+      usersRepo.findById.mockResolvedValue(user);
+
+      await expect(service.findById(USER_ID)).resolves.toBe(user);
+      expect(usersRepo.findById).toHaveBeenCalledWith(USER_ID);
+    });
+
+    it('returns null when the user does not exist', async () => {
+      usersRepo.findById.mockResolvedValue(null);
+
+      await expect(service.findById(USER_ID)).resolves.toBeNull();
+    });
+  });
+
+  describe('existsByCode', () => {
+    it.each([true, false])('returns %s from the repository', async (exists) => {
+      usersRepo.existsByCode.mockResolvedValue(exists);
+
+      await expect(service.existsByCode(USER_CODE)).resolves.toBe(exists);
+      expect(usersRepo.existsByCode).toHaveBeenCalledWith(USER_CODE);
+    });
+  });
+
+  describe('create', () => {
+    const data = {
+      name: 'John',
+      firstSurname: 'Doe',
+      email: 'john@example.com',
+      code: USER_CODE,
+    } as unknown as Parameters<UsersService['create']>[0];
+
+    it('delegates to the repository with the transaction client', async () => {
+      const user = buildSafeUser();
+      usersRepo.create.mockResolvedValue(user);
+
+      await expect(service.create(data, TX)).resolves.toBe(user);
+      expect(usersRepo.create).toHaveBeenCalledWith(data, TX);
+    });
+
+    it('delegates without a transaction client', async () => {
+      usersRepo.create.mockResolvedValue(buildSafeUser());
+
+      await service.create(data);
+
+      expect(usersRepo.create).toHaveBeenCalledWith(data, undefined);
+    });
+  });
+
+  describe('deactivate', () => {
+    const recoveryDate = new Date('2026-02-14T10:00:00.000Z');
+
+    it('delegates to the repository with the transaction client', async () => {
+      const user = buildSafeUser({ active: false });
+      usersRepo.deactivate.mockResolvedValue(user);
+
+      await expect(service.deactivate(USER_ID, recoveryDate, TX)).resolves.toBe(user);
+      expect(usersRepo.deactivate).toHaveBeenCalledWith(USER_ID, recoveryDate, TX);
+    });
+
+    it('delegates without a transaction client', async () => {
+      usersRepo.deactivate.mockResolvedValue(buildSafeUser());
+
+      await service.deactivate(USER_ID, recoveryDate);
+
+      expect(usersRepo.deactivate).toHaveBeenCalledWith(USER_ID, recoveryDate, undefined);
+    });
+  });
+
+  describe('activate', () => {
+    it('delegates to the repository with the transaction client', async () => {
+      const user = buildSafeUser();
+      usersRepo.activate.mockResolvedValue(user);
+
+      await expect(service.activate(USER_ID, TX)).resolves.toBe(user);
+      expect(usersRepo.activate).toHaveBeenCalledWith(USER_ID, TX);
+    });
+
+    it('delegates without a transaction client', async () => {
+      usersRepo.activate.mockResolvedValue(buildSafeUser());
+
+      await service.activate(USER_ID);
+
+      expect(usersRepo.activate).toHaveBeenCalledWith(USER_ID, undefined);
+    });
+  });
+
+  describe('release', () => {
+    it('delegates to the repository with the transaction client', async () => {
+      const user = buildSafeUser();
+      usersRepo.release.mockResolvedValue(user);
+
+      await expect(service.release(USER_ID, TX)).resolves.toBe(user);
+      expect(usersRepo.release).toHaveBeenCalledWith(USER_ID, TX);
+    });
+
+    it('delegates without a transaction client', async () => {
+      usersRepo.release.mockResolvedValue(buildSafeUser());
+
+      await service.release(USER_ID);
+
+      expect(usersRepo.release).toHaveBeenCalledWith(USER_ID, undefined);
     });
   });
 });

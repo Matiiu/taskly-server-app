@@ -8,6 +8,7 @@ import { buildSafeUser } from '@/common/testing/factories/users.factory';
 
 const USER_ID = 'user-id-1';
 const USER_CODE = '@johndoe';
+const RECOVERY_DATE = new Date('2026-02-14T10:00:00.000Z');
 
 describe('UsersRepository', () => {
   let repository: UsersRepository;
@@ -100,15 +101,15 @@ describe('UsersRepository', () => {
   });
 
   describe('deactivate', () => {
-    it('sets active to false without returning the password', async () => {
+    it('sets active to false and saves the recovery date without returning the password', async () => {
       const user = buildSafeUser({ active: false });
       prisma.user.update.mockResolvedValue(user);
 
-      const result = await repository.deactivate(USER_ID);
+      const result = await repository.deactivate(USER_ID, RECOVERY_DATE);
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { active: false },
+        data: { active: false, recoveryDate: RECOVERY_DATE },
         omit: OMIT_PASSWORD,
       });
       expect(result).toBe(user);
@@ -117,7 +118,7 @@ describe('UsersRepository', () => {
     it('uses the given db client instead of prisma', async () => {
       const tx = createPrismaMock();
 
-      await repository.deactivate(USER_ID, tx as never);
+      await repository.deactivate(USER_ID, RECOVERY_DATE, tx as never);
 
       expect(tx.user.update).toHaveBeenCalledTimes(1);
       expect(prisma.user.update).not.toHaveBeenCalled();
@@ -125,7 +126,7 @@ describe('UsersRepository', () => {
   });
 
   describe('activate', () => {
-    it('sets active to true without returning the password', async () => {
+    it('sets active to true and clears the recovery date without returning the password', async () => {
       const user = buildSafeUser();
       prisma.user.update.mockResolvedValue(user);
 
@@ -133,7 +134,7 @@ describe('UsersRepository', () => {
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { active: true },
+        data: { active: true, recoveryDate: null },
         omit: OMIT_PASSWORD,
       });
       expect(result).toBe(user);
@@ -143,6 +144,37 @@ describe('UsersRepository', () => {
       const tx = createPrismaMock();
 
       await repository.activate(USER_ID, tx as never);
+
+      expect(tx.user.update).toHaveBeenCalledTimes(1);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('release', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('sets releasedAt to now without returning the password', async () => {
+      const now = new Date('2026-03-01T12:00:00.000Z');
+      jest.useFakeTimers().setSystemTime(now);
+      const user = buildSafeUser();
+      prisma.user.update.mockResolvedValue(user);
+
+      const result = await repository.release(USER_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { releasedAt: now },
+        omit: OMIT_PASSWORD,
+      });
+      expect(result).toBe(user);
+    });
+
+    it('uses the given db client instead of prisma', async () => {
+      const tx = createPrismaMock();
+
+      await repository.release(USER_ID, tx as never);
 
       expect(tx.user.update).toHaveBeenCalledTimes(1);
       expect(prisma.user.update).not.toHaveBeenCalled();
