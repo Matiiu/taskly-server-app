@@ -1,6 +1,14 @@
 // common/types/audit-payload.types.ts
 import type { AuditLog } from 'generated/prisma/client';
-import type { User, Task, Status, Category, Comment, TaskRole } from 'generated/prisma/client';
+import type {
+  User,
+  Task,
+  Status,
+  Category,
+  Comment,
+  TaskRole,
+  Workspace,
+} from 'generated/prisma/client';
 
 // Reusable snapshots
 export type UserSnapshot = Pick<
@@ -36,6 +44,11 @@ type TaskUnassignedSnapshot = {
   unassignedUser: UserMinimalSnapshot;
   role: TaskRoleMinimalSnapshot;
 };
+
+export type WorkspaceSnapshot = Pick<
+  Workspace,
+  'id' | 'name' | 'code' | 'taskPrefix' | 'description' | 'isDefault' | 'ownerId'
+>;
 
 export type TaskRoleSnapshot = Pick<TaskRole, 'id' | 'name' | 'description' | 'permissions'>;
 type TaskRoleMinimalSnapshot = Pick<TaskRole, 'id' | 'name'>;
@@ -82,6 +95,9 @@ export type AuditChangeMap = {
   // Category actions
   UPDATE_COLOR_CATEGORY: { before: CategorySnapshot | null; after: CategorySnapshot };
   DELETE_CATEGORY: { before: CategorySnapshot; after: null };
+
+  // Workspace actions
+  CREATE_WORKSPACE: { before: null; after: WorkspaceSnapshot };
 
   // Task role actions
   CREATE_TASK_ROLE: { before: null; after: TaskRoleSnapshot };
