@@ -121,13 +121,35 @@ export class UsersRepository {
     return user !== null;
   }
 
-  /** Soft delete: the account is kept but marked inactive. */
-  deactivate(id: User['id'], db: Db = this.prisma): Promise<SafeUser> {
-    return db.user.update({ where: { id }, data: { active: false }, omit: OMIT_PASSWORD });
+  /** Soft delete: the account is kept but marked inactive until `recoveryDate`. */
+  deactivate(
+    id: User['id'],
+    recoveryDate: NonNullable<User['recoveryDate']>,
+    db: Db = this.prisma,
+  ): Promise<SafeUser> {
+    return db.user.update({
+      where: { id },
+      data: { active: false, recoveryDate },
+      omit: OMIT_PASSWORD,
+    });
   }
 
+  /** An active account has no recovery deadline. */
   activate(id: User['id'], db: Db = this.prisma): Promise<SafeUser> {
-    return db.user.update({ where: { id }, data: { active: true }, omit: OMIT_PASSWORD });
+    return db.user.update({
+      where: { id },
+      data: { active: true, recoveryDate: null },
+      omit: OMIT_PASSWORD,
+    });
+  }
+
+  /** Deletes the account for good: frees its email and document for a new account. */
+  release(id: User['id'], db: Db = this.prisma): Promise<SafeUser> {
+    return db.user.update({
+      where: { id },
+      data: { releasedAt: new Date() },
+      omit: OMIT_PASSWORD,
+    });
   }
 
   update(id: User['id'], data: UpdateUserData, db: Db = this.prisma): Promise<SafeUser> {

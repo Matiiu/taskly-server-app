@@ -70,6 +70,7 @@ export type AuditChangeMap = {
   REGISTER_USER: { before: null; after: UserSnapshot };
   INACTIVATE_USER: { before: UserSnapshot; after: null };
   REACTIVATE_USER: { before: null; after: UserSnapshot };
+  RELEASE_USER: { before: UserSnapshot; after: null };
 
   // User Update — before & after
   UPDATE_USER: { before: UserSnapshot; after: UserSnapshot };

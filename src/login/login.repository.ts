@@ -58,8 +58,9 @@ export class LoginRepository {
     return db.user.findUnique({ where: { id } });
   }
 
+  /** Released accounts are gone for good: a new account may reuse their email. */
   findByEmail(email: User['email'], db: Db = this.prisma): Promise<User | null> {
-    return db.user.findUnique({ where: { email } });
+    return db.user.findFirst({ where: { email, releasedAt: null } });
   }
 
   async updatePassword(

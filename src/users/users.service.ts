@@ -7,7 +7,8 @@ import { PAGE_DEFAULT, LIMIT_DEFAULT } from '@/common/constants/pagination.const
 import { UpdateUserInput } from '@/users/dto/update-user.type';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
-import { UsersRepository } from '@/users/users.repository';
+import { UsersRepository, type CreateUserData } from '@/users/users.repository';
+import type { Db } from '@/prisma/prisma.types';
 import type { User } from 'generated/prisma/client';
 import type { SafeUser } from '@/users/types/users.type';
 import { toUserSnapshot } from '@/users/utils/user-snapshot.util';
@@ -42,6 +43,39 @@ export class UsersService {
     }
 
     return this.toUserType(user);
+  }
+
+  /** Active user by id, or null (for callers where a missing user is not an error). */
+  findById(id: User['id']): Promise<SafeUser | null> {
+    return this.usersRepo.findById(id);
+  }
+
+  existsByCode(code: User['code']): Promise<boolean> {
+    return this.usersRepo.existsByCode(code);
+  }
+
+  /**
+   * Account state writes used by the login module. They take an optional `tx` so login can run
+   * them inside its own transactions; audit logs stay with the caller, which knows the action.
+   */
+  create(data: CreateUserData, db?: Db): Promise<SafeUser> {
+    return this.usersRepo.create(data, db);
+  }
+
+  deactivate(
+    id: User['id'],
+    recoveryDate: NonNullable<User['recoveryDate']>,
+    db?: Db,
+  ): Promise<SafeUser> {
+    return this.usersRepo.deactivate(id, recoveryDate, db);
+  }
+
+  activate(id: User['id'], db?: Db): Promise<SafeUser> {
+    return this.usersRepo.activate(id, db);
+  }
+
+  release(id: User['id'], db?: Db): Promise<SafeUser> {
+    return this.usersRepo.release(id, db);
   }
 
   /** Active user by id; 404 otherwise. */

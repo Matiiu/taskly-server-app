@@ -9,6 +9,6 @@ import { TargetUserGuard } from '@/users/guards/target-user.guard';
 @Module({
   imports: [JwtAuthModule],
   providers: [UsersResolver, UsersService, UsersRepository, TargetUserGuard],
-  exports: [UsersService, JwtAuthModule, UsersRepository],
+  exports: [UsersService, JwtAuthModule],
 })
 export class UsersModule {}

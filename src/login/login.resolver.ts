@@ -2,6 +2,8 @@ import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { LoginService } from '@/login/login.service';
+import { RegistrationService } from '@/login/registration.service';
+import { AccountService } from '@/login/account.service';
 import { RegisterInput } from '@/login/dto/register.input';
 import { RecoverPasswordInput } from '@/login/dto/recover-password.input';
 import { SignInInput } from '@/login/dto/sign-in.input';
@@ -21,13 +23,17 @@ const DeleteAccountPayload = MutationPayload('DeleteAccountPayload', {});
 
 @Resolver()
 export class LoginResolver {
-  constructor(private readonly loginService: LoginService) {}
+  constructor(
+    private readonly loginService: LoginService,
+    private readonly registrationService: RegistrationService,
+    private readonly accountService: AccountService,
+  ) {}
 
   @Mutation(() => RegisterPayload, { name: 'register' })
   async register(
     @Args('input') input: RegisterInput,
   ): Promise<InstanceType<typeof RegisterPayload>> {
-    const user = await this.loginService.register(input);
+    const user = await this.registrationService.register(input);
     const fullName = `${user.name} ${user.firstSurname}`;
 
     return {
@@ -60,7 +66,7 @@ export class LoginResolver {
 
   @Query(() => [String], { name: 'suggestedCodes' })
   async suggestCodes(@Args('input') input: SuggestCodesInput): Promise<string[]> {
-    return this.loginService.suggestCodes(input);
+    return this.registrationService.suggestCodes(input);
   }
 
   @Mutation(() => Boolean, { name: 'logout' })
@@ -79,7 +85,7 @@ export class LoginResolver {
     @CurrentUser('id') userId: User['id'],
     @Args('input') { password }: DeleteAccountInput,
   ): Promise<InstanceType<typeof DeleteAccountPayload>> {
-    await this.loginService.deleteAccount({ userId, password });
+    await this.accountService.deleteAccount({ userId, password });
 
     return { message: 'Account deleted successfully' };
   }
@@ -88,7 +94,7 @@ export class LoginResolver {
   async recoverAccount(
     @Args('input') input: RecoverAccountInput,
   ): Promise<InstanceType<typeof LoginTokenPayload>> {
-    const token = await this.loginService.recoverAccount(input);
+    const token = await this.accountService.recoverAccount(input);
 
     return {
       token,
