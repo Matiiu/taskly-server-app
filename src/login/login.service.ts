@@ -144,7 +144,7 @@ export class LoginService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await this.usersRepo.setActive(user.id, false, tx);
+      await this.usersRepo.deactivate(user.id, tx);
       await this.tokenService.revokeAllSessions(user.id, tx);
     });
 
@@ -169,7 +169,7 @@ export class LoginService {
       throw new ConflictException('Account is already active');
     }
 
-    const reactivatedUser = await this.usersRepo.setActive(user.id, true);
+    const reactivatedUser = await this.usersRepo.activate(user.id);
     const token = await this.tokenService.sign({ userId: user.id, userCode: user.code });
 
     this.appEventEmitter.emitAuditLog({
