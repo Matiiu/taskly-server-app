@@ -73,7 +73,11 @@ Data flow is one-way: `Resolver -> Service -> Repository -> Prisma`. A layer nev
 ### Repository rules
 
 - `@Injectable()` class that injects `PrismaService`. This is the only place where `prisma.<model>` is used.
-- One method per query, named after what it does: `findById`, `findByName`, `findPage`, `create`, `updateColor`, `delete`.
+- One method per query, named after what it does: `findById`, `findByName`, `findPage`, `create`, `updateColor`, `delete`. For lists:
+  - `findPage`: paginated (`count` + `findMany` in one `$transaction([...])`).
+  - `findMany`: filtered, not paginated.
+  - `findAll`: every row, no filter and no pagination.
+- **Reads return active rows only**, with no `active` parameter. Queries that include inactive rows live only in the admin module's repository. Soft deletes use `deactivate` / `activate` methods, never a boolean (`setActive(id, false)`).
 - Write methods (and reads used inside transactions) take a last param `db: Db = this.prisma` (`Db` from `@/prisma/prisma.types`) so they work in and out of a transaction.
 - No business rules and no Nest HTTP exceptions. Return `null` when not found and let the service decide.
 - Scope every query by its owner (e.g. `workspaceId`) when the entity belongs to one.
@@ -136,7 +140,6 @@ Shared code lives in `src/common/` (constants, dto, entities, enums, exceptions,
 
 These modules predate the rules and still query Prisma outside a repository. Don't copy them. When you touch one, move its queries into a `<feature>.repository.ts`:
 
-- `src/users/users.service.ts` (`findMany`, the document check and the update itself)
 - `src/comments/comments.service.ts` (no repository yet)
 - `src/audit-log/audit-log.service.ts` (no repository yet)
 
