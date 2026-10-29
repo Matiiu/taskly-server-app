@@ -8,6 +8,7 @@ import { buildSafeUser } from '@/common/testing/factories/users.factory';
 
 const USER_ID = 'user-id-1';
 const USER_CODE = '@johndoe';
+const NEW_CODE = '@newcode';
 const RECOVERY_DATE = new Date('2026-02-14T10:00:00.000Z');
 
 describe('UsersRepository', () => {
@@ -175,6 +176,31 @@ describe('UsersRepository', () => {
       const tx = createPrismaMock();
 
       await repository.release(USER_ID, tx as never);
+
+      expect(tx.user.update).toHaveBeenCalledTimes(1);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateCode', () => {
+    it('updates only the code of the user without returning the password', async () => {
+      const user = buildSafeUser({ code: NEW_CODE });
+      prisma.user.update.mockResolvedValue(user);
+
+      const result = await repository.updateCode(USER_ID, NEW_CODE);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { code: NEW_CODE },
+        omit: OMIT_PASSWORD,
+      });
+      expect(result).toBe(user);
+    });
+
+    it('uses the given db client instead of prisma', async () => {
+      const tx = createPrismaMock();
+
+      await repository.updateCode(USER_ID, NEW_CODE, tx as never);
 
       expect(tx.user.update).toHaveBeenCalledTimes(1);
       expect(prisma.user.update).not.toHaveBeenCalled();

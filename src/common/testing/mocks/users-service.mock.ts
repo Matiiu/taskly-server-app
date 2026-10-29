@@ -8,6 +8,7 @@ export const createUsersServiceMock = () => ({
   deactivate: jest.fn(),
   activate: jest.fn(),
   release: jest.fn(),
+  changeCode: jest.fn(),
   update: jest.fn(),
   assertDocumentAvailable: jest.fn(),
   toUserType: jest.fn(),
