@@ -121,6 +121,10 @@ export class UsersRepository {
     return user !== null;
   }
 
+  updateCode(id: User['id'], code: User['code'], db: Db = this.prisma): Promise<SafeUser> {
+    return db.user.update({ where: { id }, data: { code }, omit: OMIT_PASSWORD });
+  }
+
   /** Soft delete: the account is kept but marked inactive until `recoveryDate`. */
   deactivate(
     id: User['id'],

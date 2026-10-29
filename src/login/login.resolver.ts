@@ -10,6 +10,9 @@ import { SignInInput } from '@/login/dto/sign-in.input';
 import { SuggestCodesInput } from '@/login/dto/suggest-codes.input';
 import { DeleteAccountInput } from '@/login/dto/delete-account.input';
 import { RecoverAccountInput } from '@/login/dto/recover-account.input';
+import { ChangePasswordInput } from '@/login/dto/change-password.input';
+import { ChangeCodeInput } from '@/users/dto/change-code.input';
+import type { SafeUser } from '@/users/types/users.type';
 import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { CurrentUser } from '@/login/decorators/current-user.decorator';
 import { CurrentSession } from '@/login/decorators/current-session.decorator';
@@ -20,6 +23,7 @@ import type { User } from 'generated/prisma/client';
 const RegisterPayload = MutationPayload('RegisterPayload', { user: UserType });
 const LoginTokenPayload = MutationPayload('LoginTokenPayload', { token: String });
 const DeleteAccountPayload = MutationPayload('DeleteAccountPayload', {});
+const ChangeCodePayload = MutationPayload('ChangeCodePayload', { user: UserType, token: String });
 
 @Resolver()
 export class LoginResolver {
@@ -61,6 +65,35 @@ export class LoginResolver {
     return {
       token,
       message: 'Password recovered successfully',
+    };
+  }
+
+  @Mutation(() => LoginTokenPayload, { name: 'changePassword' })
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @CurrentUser() user: SafeUser,
+    @Args('input') input: ChangePasswordInput,
+  ): Promise<InstanceType<typeof LoginTokenPayload>> {
+    const token = await this.loginService.changePassword(user, input);
+
+    return {
+      token,
+      message: 'Password changed successfully',
+    };
+  }
+
+  @Mutation(() => ChangeCodePayload, { name: 'changeCode' })
+  @UseGuards(JwtAuthGuard)
+  async changeCode(
+    @CurrentUser() currentUser: SafeUser,
+    @Args('input') { code }: ChangeCodeInput,
+  ): Promise<InstanceType<typeof ChangeCodePayload>> {
+    const { user, token } = await this.accountService.changeCode(currentUser, code);
+
+    return {
+      user,
+      token,
+      message: `Code changed to ${user.code} successfully`,
     };
   }
 

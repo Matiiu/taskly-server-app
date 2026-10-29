@@ -10,8 +10,10 @@ import { ACCOUNT_RECOVERY_DAYS } from '@/users/constants/users.constants';
 import { UsersService } from '@/users/users.service';
 import { toUserSnapshot } from '@/users/utils/user-snapshot.util';
 import type { User } from 'generated/prisma/client';
+import type { SafeUser } from '@/users/types/users.type';
+import { UserType } from '@/users/entities/user.type';
 
-/** Account lifecycle: soft delete, recovery within the window, and release once it expires. */
+/** Account lifecycle (soft delete, recovery, release on expiry) and code changes. */
 @Injectable()
 export class AccountService {
   constructor(
@@ -49,6 +51,14 @@ export class AccountService {
       before: toUserSnapshot(user),
       after: null,
     });
+  }
+
+  /** Changes the user's code and returns a token whose `code` claim matches it. */
+  async changeCode(user: SafeUser, code: User['code']): Promise<{ user: UserType; token: string }> {
+    const updatedUser = await this.usersService.changeCode(user, code);
+    const token = await this.tokenService.sign({ userId: user.id, userCode: updatedUser.code });
+
+    return { user: updatedUser, token };
   }
 
   /**

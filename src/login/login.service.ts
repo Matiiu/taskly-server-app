@@ -5,6 +5,8 @@ import { comparePassword, hashPassword } from '@/common/utils/hash.util';
 import { CredentialsService } from '@/login/credentials.service';
 import { RecoverPasswordInput } from '@/login/dto/recover-password.input';
 import { SignInInput } from '@/login/dto/sign-in.input';
+import { ChangePasswordInput } from '@/login/dto/change-password.input';
+import type { SafeUser } from '@/users/types/users.type';
 import { LoginRepository } from '@/login/login.repository';
 import { TokenService } from '@/login/token.service';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -13,7 +15,9 @@ import { assertUserIsActive } from '@/users/utils/user-status.util';
 import { toUserMinimalSnapshot } from '@/users/utils/user-snapshot.util';
 import type { User } from 'generated/prisma/client';
 
-/** Sessions: sign in, logout and password recovery. */
+const SAME_PASSWORD_MESSAGE = 'New password must be different from the current password';
+
+/** Sessions and passwords: sign in, logout, password recovery and change. */
 @Injectable()
 export class LoginService {
   constructor(
@@ -65,21 +69,11 @@ export class LoginService {
 
     assertUserIsActive(user);
 
-    const isCurrentPassword = await comparePassword(password, user.password);
-
-    if (isCurrentPassword) {
-      throw new BadRequestException('New password must be different from the current password');
+    if (await comparePassword(password, user.password)) {
+      throw new BadRequestException(SAME_PASSWORD_MESSAGE);
     }
 
-    const passwordHash = await hashPassword(password);
-
-    // Sign out every device that used the old password; the new token is issued after the cutoff.
-    await this.prisma.$transaction(async (tx) => {
-      await this.loginRepo.updatePassword(user.id, passwordHash, tx);
-      await this.tokenService.revokeAllSessions(user.id, tx);
-    });
-
-    const token = await this.tokenService.sign({ userId: user.id, userCode: user.code });
+    const token = await this.replacePassword(user, password);
 
     this.appEventEmitter.emitAuditLog({
       userId: user.id,
@@ -91,5 +85,48 @@ export class LoginService {
     });
 
     return token;
+  }
+
+  /** Signed-in user: proves the current password, then sets the new one. */
+  async changePassword(
+    user: SafeUser,
+    { currentPassword, newPassword }: ChangePasswordInput,
+  ): Promise<string> {
+    await this.credentialsService.validateById(user.id, currentPassword);
+
+    if (newPassword === currentPassword) {
+      throw new BadRequestException(SAME_PASSWORD_MESSAGE);
+    }
+
+    const token = await this.replacePassword(user, newPassword);
+
+    this.appEventEmitter.emitAuditLog({
+      userId: user.id,
+      action: 'CHANGE_PASSWORD',
+      entityId: user.id,
+      entity: 'User',
+      before: toUserMinimalSnapshot(user),
+      after: toUserMinimalSnapshot(user),
+    });
+
+    return token;
+  }
+
+  /**
+   * Saves the new hash and signs out every device that used the old password.
+   * The returned token is issued after that cutoff, so it stays valid.
+   */
+  private async replacePassword(
+    user: Pick<User, 'id' | 'code'>,
+    newPassword: string,
+  ): Promise<string> {
+    const passwordHash = await hashPassword(newPassword);
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.loginRepo.updatePassword(user.id, passwordHash, tx);
+      await this.tokenService.revokeAllSessions(user.id, tx);
+    });
+
+    return this.tokenService.sign({ userId: user.id, userCode: user.code });
   }
 }
