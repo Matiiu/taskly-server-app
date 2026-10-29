@@ -3,6 +3,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UserRole } from 'generated/prisma/client';
 import { TargetUserGuard } from '@/users/guards/target-user.guard';
 import { UsersService } from '@/users/users.service';
+import { UserNotFoundException } from '@/common/exceptions/user-not-found.exception';
 import { AuthenticatedUserNotFoundException } from '@/common/exceptions/authenticated-user-not-found.exception';
 import { buildGuardContext, mockGqlContext } from '@/common/testing/factories/gql-guard.factory';
 import { buildSafeUser } from '@/common/testing/factories/users.factory';
@@ -55,7 +56,7 @@ describe('TargetUserGuard', () => {
   });
 
   it('propagates NotFoundException when the admin targets an unknown user', async () => {
-    usersService.findByIdOrThrow.mockRejectedValue(new NotFoundException('User not found'));
+    usersService.findByIdOrThrow.mockRejectedValue(new UserNotFoundException());
     mockGqlContext({ user: admin }, { id: 'missing' });
 
     await expect(guard.canActivate(context)).rejects.toThrow(NotFoundException);

@@ -72,14 +72,13 @@ export class TasksService {
     { limit = LIMIT_DEFAULT, page = PAGE_DEFAULT, sortOrder = 'desc' }: PaginationArgsInput = {},
     { search = null, relations }: TasksFiltersInput = {},
   ): Promise<PaginatedTaskSummaryType> {
-    const { tasks, total } = await this.tasksRepo.findPageForUser({
+    const { tasks, total } = await this.tasksRepo.findPage({
       limit,
       page,
       sortOrder,
       userId,
       search,
       relations,
-      active: true,
     });
 
     return {

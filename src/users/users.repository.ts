@@ -4,6 +4,7 @@ import type { Db } from '@/prisma/prisma.types';
 import { User, Prisma } from 'generated/prisma/client';
 import type { SafeUser } from '@/users/types/users.type';
 import { OMIT_PASSWORD } from '@/users/constants/users.constants';
+import { SortOrder } from '@/common/enums/pagination.enum';
 
 export type CreateUserData = Pick<
   Prisma.UserCreateInput,
@@ -33,7 +34,16 @@ export type UpdateUserData = Pick<
   | 'phoneCountryCode'
 >;
 
-/** Never returns the password hash: credential reads and writes live in LoginRepository. */
+type FindPageData = {
+  page: number;
+  limit: number;
+  sortOrder: SortOrder;
+};
+
+/**
+ * Reads return active users only (inactive ones belong to the future admin module).
+ * Never returns the password hash: credential reads and writes live in LoginRepository.
+ */
 @Injectable()
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -57,12 +67,36 @@ export class UsersRepository {
     });
   }
 
-  findById(id: User['id'], active = true, db: Db = this.prisma): Promise<SafeUser | null> {
-    return db.user.findUnique({ where: { id, active }, omit: OMIT_PASSWORD });
+  /**
+   * Not `db`-aware: the batch `$transaction([...])` form is not available on a transaction client.
+   */
+  async findPage({
+    page,
+    limit,
+    sortOrder,
+  }: FindPageData): Promise<{ users: SafeUser[]; total: number }> {
+    const where: Prisma.UserWhereInput = { active: true };
+
+    const [users, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        where,
+        orderBy: [{ name: sortOrder }, { firstSurname: sortOrder }, { secondSurname: sortOrder }],
+        omit: OMIT_PASSWORD,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { users, total };
   }
 
-  findByCode(code: User['code'], active = true, db: Db = this.prisma): Promise<SafeUser | null> {
-    return db.user.findUnique({ where: { code, active }, omit: OMIT_PASSWORD });
+  findById(id: User['id'], db: Db = this.prisma): Promise<SafeUser | null> {
+    return db.user.findUnique({ where: { id, active: true }, omit: OMIT_PASSWORD });
+  }
+
+  findByCode(code: User['code'], db: Db = this.prisma): Promise<SafeUser | null> {
+    return db.user.findUnique({ where: { code, active: true }, omit: OMIT_PASSWORD });
   }
 
   /** True when the document belongs to a user other than `excludeId` (unique per type). */
@@ -87,12 +121,13 @@ export class UsersRepository {
     return user !== null;
   }
 
-  setActive(id: User['id'], active: boolean, db: Db = this.prisma): Promise<SafeUser> {
-    return db.user.update({
-      where: { id },
-      data: { active },
-      omit: OMIT_PASSWORD,
-    });
+  /** Soft delete: the account is kept but marked inactive. */
+  deactivate(id: User['id'], db: Db = this.prisma): Promise<SafeUser> {
+    return db.user.update({ where: { id }, data: { active: false }, omit: OMIT_PASSWORD });
+  }
+
+  activate(id: User['id'], db: Db = this.prisma): Promise<SafeUser> {
+    return db.user.update({ where: { id }, data: { active: true }, omit: OMIT_PASSWORD });
   }
 
   update(id: User['id'], data: UpdateUserData, db: Db = this.prisma): Promise<SafeUser> {

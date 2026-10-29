@@ -1,12 +1,5 @@
-import {
-  Injectable,
-  BadRequestException,
-  ConflictException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 
-import { PrismaService } from '@/prisma/prisma.service';
 import { UserType } from '@/users/entities/user.type';
 import { PaginatedUsersType } from '@/users/entities/paginated-users.type';
 import { paginationMeta } from '@/common/utils/pagination.util';
@@ -20,36 +13,32 @@ import type { SafeUser } from '@/users/types/users.type';
 import { toUserSnapshot } from '@/users/utils/user-snapshot.util';
 import { assertCanActOnUser } from '@/users/utils/user-access.util';
 import { isUniqueViolation } from '@/prisma/prisma.errors';
+import { UserNotFoundException } from '@/common/exceptions/user-not-found.exception';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly usersRepo: UsersRepository,
     private readonly eventEmitter: AppEventEmitterService,
   ) {}
 
   async findMany(pagination: PaginationArgsInput = {}): Promise<PaginatedUsersType> {
     const { limit = LIMIT_DEFAULT, page = PAGE_DEFAULT, sortOrder = 'desc' } = pagination;
-    const [usersResponse, total] = await this.prisma.$transaction([
-      this.prisma.user.findMany({
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: [{ name: sortOrder }, { firstSurname: sortOrder }, { secondSurname: sortOrder }],
-      }),
-      this.prisma.user.count(),
-    ]);
-    const users = usersResponse.map((user) => this.toUserType(user));
-    return { users, meta: paginationMeta(total, page, limit) };
+    const { users, total } = await this.usersRepo.findPage({ page, limit, sortOrder });
+
+    return {
+      users: users.map((user) => this.toUserType(user)),
+      meta: paginationMeta(total, page, limit),
+    };
   }
 
   async findByCode(code: string): Promise<UserType> {
     const user = await this.usersRepo.findByCode(code);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new UserNotFoundException({ code });
     }
 
     return this.toUserType(user);
@@ -60,7 +49,7 @@ export class UsersService {
     const user = await this.usersRepo.findById(id);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new UserNotFoundException();
     }
 
     return user;
