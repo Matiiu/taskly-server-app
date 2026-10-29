@@ -1,8 +1,11 @@
 import { randomInt } from 'crypto';
 
-const MIN_CODE_LENGTH = 6;
-const MAX_CODE_LENGTH = 20;
-const CODE_PREFIX = '@';
+import {
+  CODE_PREFIX,
+  MAX_CODE_LENGTH,
+  MIN_CODE_LENGTH,
+} from '@/common/constants/user-code.constants';
+
 const SUFFIX_SEPARATOR = '_';
 // Fixed width: 9,000 variants per seed, regardless of how long the name is
 const SUFFIX_DIGITS = 4;

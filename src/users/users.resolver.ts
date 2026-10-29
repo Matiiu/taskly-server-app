@@ -14,7 +14,7 @@ import { TargetUserGuard } from '@/users/guards/target-user.guard';
 import { TargetUser } from '@/users/decorators/target-user.decorator';
 import type { SafeUser } from '@/users/types/users.type';
 
-const UpdateUserPayload = MutationPayload('UpdateUserPayload', {});
+const UpdateUserPayload = MutationPayload('UpdateUserPayload', { user: UserType });
 
 @Resolver()
 @UseGuards(JwtAuthGuard)
@@ -55,6 +55,6 @@ export class UsersResolver {
   ): Promise<InstanceType<typeof UpdateUserPayload>> {
     const user = await this.usersService.update(target, input, actor);
 
-    return { message: `User ${user.code} updated successfully` };
+    return { message: `User ${user.code} updated successfully`, user };
   }
 }

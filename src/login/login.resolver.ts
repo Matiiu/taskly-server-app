@@ -2,12 +2,17 @@ import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { LoginService } from '@/login/login.service';
+import { RegistrationService } from '@/login/registration.service';
+import { AccountService } from '@/login/account.service';
 import { RegisterInput } from '@/login/dto/register.input';
 import { RecoverPasswordInput } from '@/login/dto/recover-password.input';
 import { SignInInput } from '@/login/dto/sign-in.input';
 import { SuggestCodesInput } from '@/login/dto/suggest-codes.input';
 import { DeleteAccountInput } from '@/login/dto/delete-account.input';
 import { RecoverAccountInput } from '@/login/dto/recover-account.input';
+import { ChangePasswordInput } from '@/login/dto/change-password.input';
+import { ChangeCodeInput } from '@/users/dto/change-code.input';
+import type { SafeUser } from '@/users/types/users.type';
 import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { CurrentUser } from '@/login/decorators/current-user.decorator';
 import { CurrentSession } from '@/login/decorators/current-session.decorator';
@@ -18,16 +23,21 @@ import type { User } from 'generated/prisma/client';
 const RegisterPayload = MutationPayload('RegisterPayload', { user: UserType });
 const LoginTokenPayload = MutationPayload('LoginTokenPayload', { token: String });
 const DeleteAccountPayload = MutationPayload('DeleteAccountPayload', {});
+const ChangeCodePayload = MutationPayload('ChangeCodePayload', { user: UserType, token: String });
 
 @Resolver()
 export class LoginResolver {
-  constructor(private readonly loginService: LoginService) {}
+  constructor(
+    private readonly loginService: LoginService,
+    private readonly registrationService: RegistrationService,
+    private readonly accountService: AccountService,
+  ) {}
 
   @Mutation(() => RegisterPayload, { name: 'register' })
   async register(
     @Args('input') input: RegisterInput,
   ): Promise<InstanceType<typeof RegisterPayload>> {
-    const user = await this.loginService.register(input);
+    const user = await this.registrationService.register(input);
     const fullName = `${user.name} ${user.firstSurname}`;
 
     return {
@@ -58,9 +68,38 @@ export class LoginResolver {
     };
   }
 
+  @Mutation(() => LoginTokenPayload, { name: 'changePassword' })
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @CurrentUser() user: SafeUser,
+    @Args('input') input: ChangePasswordInput,
+  ): Promise<InstanceType<typeof LoginTokenPayload>> {
+    const token = await this.loginService.changePassword(user, input);
+
+    return {
+      token,
+      message: 'Password changed successfully',
+    };
+  }
+
+  @Mutation(() => ChangeCodePayload, { name: 'changeCode' })
+  @UseGuards(JwtAuthGuard)
+  async changeCode(
+    @CurrentUser() currentUser: SafeUser,
+    @Args('input') { code }: ChangeCodeInput,
+  ): Promise<InstanceType<typeof ChangeCodePayload>> {
+    const { user, token } = await this.accountService.changeCode(currentUser, code);
+
+    return {
+      user,
+      token,
+      message: `Code changed to ${user.code} successfully`,
+    };
+  }
+
   @Query(() => [String], { name: 'suggestedCodes' })
   async suggestCodes(@Args('input') input: SuggestCodesInput): Promise<string[]> {
-    return this.loginService.suggestCodes(input);
+    return this.registrationService.suggestCodes(input);
   }
 
   @Mutation(() => Boolean, { name: 'logout' })
@@ -79,7 +118,7 @@ export class LoginResolver {
     @CurrentUser('id') userId: User['id'],
     @Args('input') { password }: DeleteAccountInput,
   ): Promise<InstanceType<typeof DeleteAccountPayload>> {
-    await this.loginService.deleteAccount({ userId, password });
+    await this.accountService.deleteAccount({ userId, password });
 
     return { message: 'Account deleted successfully' };
   }
@@ -88,7 +127,7 @@ export class LoginResolver {
   async recoverAccount(
     @Args('input') input: RecoverAccountInput,
   ): Promise<InstanceType<typeof LoginTokenPayload>> {
-    const token = await this.loginService.recoverAccount(input);
+    const token = await this.accountService.recoverAccount(input);
 
     return {
       token,

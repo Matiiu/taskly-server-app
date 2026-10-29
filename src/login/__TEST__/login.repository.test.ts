@@ -20,11 +20,11 @@ describe('LoginRepository', () => {
       expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: 'user-id-1' } });
     });
 
-    it('findByEmail', async () => {
+    it('findByEmail ignores released accounts', async () => {
       await repository.findByEmail('john@example.com');
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email: 'john@example.com' },
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: { email: 'john@example.com', releasedAt: null },
       });
     });
   });

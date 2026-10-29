@@ -4,12 +4,18 @@ import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 
 import { LoginResolver } from '@/login/login.resolver';
 import { LoginService } from '@/login/login.service';
+import { RegistrationService } from '@/login/registration.service';
+import { AccountService } from '@/login/account.service';
 import { DocumentType } from 'generated/prisma/enums';
-import { buildUser, buildUserType } from '@/common/testing/factories/users.factory';
+import { buildSafeUser, buildUser, buildUserType } from '@/common/testing/factories/users.factory';
 import { MOCK_TOKEN } from '@/common/testing/constants';
 import { createLoginServiceMock } from '@/common/testing/mocks/login-service.mock';
+import { createRegistrationServiceMock } from '@/common/testing/mocks/registration-service.mock';
+import { createAccountServiceMock } from '@/common/testing/mocks/account-service.mock';
 
 let loginServiceMock: ReturnType<typeof createLoginServiceMock>;
+let registrationServiceMock: ReturnType<typeof createRegistrationServiceMock>;
+let accountServiceMock: ReturnType<typeof createAccountServiceMock>;
 
 describe('LoginResolver', () => {
   let resolver: LoginResolver;
@@ -18,9 +24,16 @@ describe('LoginResolver', () => {
     jest.restoreAllMocks();
 
     loginServiceMock = createLoginServiceMock();
+    registrationServiceMock = createRegistrationServiceMock();
+    accountServiceMock = createAccountServiceMock();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [LoginResolver, { provide: LoginService, useValue: loginServiceMock }],
+      providers: [
+        LoginResolver,
+        { provide: LoginService, useValue: loginServiceMock },
+        { provide: RegistrationService, useValue: registrationServiceMock },
+        { provide: AccountService, useValue: accountServiceMock },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -44,11 +57,11 @@ describe('LoginResolver', () => {
         phoneCountryCode: null,
       };
 
-      loginServiceMock.register.mockResolvedValue(user);
+      registrationServiceMock.register.mockResolvedValue(user);
 
       const result = await resolver.register(input);
 
-      expect(loginServiceMock.register).toHaveBeenCalledWith(input);
+      expect(registrationServiceMock.register).toHaveBeenCalledWith(input);
       expect(result).toEqual({
         user,
         message: 'User John Doe registered successfully',
@@ -88,16 +101,33 @@ describe('LoginResolver', () => {
     });
   });
 
+  describe('changePassword', () => {
+    it('should call the service with the user and input and return the token', async () => {
+      const user = buildSafeUser();
+      const input = { currentPassword: 'OldPassword123!', newPassword: 'NewPassword123!' };
+
+      loginServiceMock.changePassword.mockResolvedValue(MOCK_TOKEN);
+
+      const result = await resolver.changePassword(user, input);
+
+      expect(loginServiceMock.changePassword).toHaveBeenCalledWith(user, input);
+      expect(result).toEqual({
+        token: MOCK_TOKEN,
+        message: 'Password changed successfully',
+      });
+    });
+  });
+
   describe('suggestCodes', () => {
     it('should return the suggested codes from the service', async () => {
       const codes = ['@john_doe', '@doe_john', '@john_1234'];
       const input = { name: 'John', firstSurname: 'Doe' };
 
-      loginServiceMock.suggestCodes.mockResolvedValue(codes);
+      registrationServiceMock.suggestCodes.mockResolvedValue(codes);
 
       const result = await resolver.suggestCodes(input);
 
-      expect(loginServiceMock.suggestCodes).toHaveBeenCalledWith(input);
+      expect(registrationServiceMock.suggestCodes).toHaveBeenCalledWith(input);
       expect(result).toEqual(codes);
     });
   });
@@ -118,11 +148,11 @@ describe('LoginResolver', () => {
 
   describe('deleteAccount', () => {
     it('should call the service with the user and password and return a message', async () => {
-      loginServiceMock.deleteAccount.mockResolvedValue(undefined);
+      accountServiceMock.deleteAccount.mockResolvedValue(undefined);
 
       const result = await resolver.deleteAccount('user-id-1', { password: 'Password123!' });
 
-      expect(loginServiceMock.deleteAccount).toHaveBeenCalledWith({
+      expect(accountServiceMock.deleteAccount).toHaveBeenCalledWith({
         userId: 'user-id-1',
         password: 'Password123!',
       });
@@ -134,12 +164,29 @@ describe('LoginResolver', () => {
     it('should return the token and recovery message', async () => {
       const input = { email: 'john@example.com', password: 'Password123!' };
 
-      loginServiceMock.recoverAccount.mockResolvedValue(MOCK_TOKEN);
+      accountServiceMock.recoverAccount.mockResolvedValue(MOCK_TOKEN);
 
       const result = await resolver.recoverAccount(input);
 
-      expect(loginServiceMock.recoverAccount).toHaveBeenCalledWith(input);
+      expect(accountServiceMock.recoverAccount).toHaveBeenCalledWith(input);
       expect(result).toEqual({ token: MOCK_TOKEN, message: 'Account recovered successfully' });
+    });
+  });
+
+  describe('changeCode', () => {
+    it('should call the service with the user and code and return the user, token and message', async () => {
+      const currentUser = buildSafeUser();
+      const user = buildUserType(buildSafeUser({ code: '@newcode' }));
+      accountServiceMock.changeCode.mockResolvedValue({ user, token: MOCK_TOKEN });
+
+      const result = await resolver.changeCode(currentUser, { code: '@newcode' });
+
+      expect(accountServiceMock.changeCode).toHaveBeenCalledWith(currentUser, '@newcode');
+      expect(result).toEqual({
+        user,
+        token: MOCK_TOKEN,
+        message: 'Code changed to @newcode successfully',
+      });
     });
   });
 });
