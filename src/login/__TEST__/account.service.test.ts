@@ -7,7 +7,7 @@ import { TokenService } from '@/login/token.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UsersService } from '@/users/users.service';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
-import { buildSafeUser, buildUser } from '@/common/testing/factories/users.factory';
+import { buildSafeUser, buildUser, buildUserType } from '@/common/testing/factories/users.factory';
 import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
 import { createUsersServiceMock } from '@/common/testing/mocks/users-service.mock';
 import { createCredentialsServiceMock } from '@/common/testing/mocks/credentials-service.mock';
@@ -236,6 +236,30 @@ describe('AccountService', () => {
       expect(usersServiceMock.release).not.toHaveBeenCalled();
       expect(usersServiceMock.activate).not.toHaveBeenCalled();
       expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('changeCode', () => {
+    const NEW_CODE = '@newcode';
+
+    it('changes the code and signs a token with the new code', async () => {
+      const user = buildSafeUser({ id: USER_ID });
+      const updatedUser = buildUserType(buildSafeUser({ id: USER_ID, code: NEW_CODE }));
+      usersServiceMock.changeCode.mockResolvedValue(updatedUser);
+
+      const result = await service.changeCode(user, NEW_CODE);
+
+      expect(usersServiceMock.changeCode).toHaveBeenCalledWith(user, NEW_CODE);
+      expect(tokenServiceMock.sign).toHaveBeenCalledWith({ userId: USER_ID, userCode: NEW_CODE });
+      expect(result).toEqual({ user: updatedUser, token: MOCK_TOKEN });
+    });
+
+    it('does not sign a token when the code change fails', async () => {
+      const user = buildSafeUser({ id: USER_ID });
+      usersServiceMock.changeCode.mockRejectedValue(new ConflictException('taken'));
+
+      await expect(service.changeCode(user, NEW_CODE)).rejects.toThrow(ConflictException);
+      expect(tokenServiceMock.sign).not.toHaveBeenCalled();
     });
   });
 });

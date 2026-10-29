@@ -7,7 +7,7 @@ import { LoginService } from '@/login/login.service';
 import { RegistrationService } from '@/login/registration.service';
 import { AccountService } from '@/login/account.service';
 import { DocumentType } from 'generated/prisma/enums';
-import { buildUser, buildUserType } from '@/common/testing/factories/users.factory';
+import { buildSafeUser, buildUser, buildUserType } from '@/common/testing/factories/users.factory';
 import { MOCK_TOKEN } from '@/common/testing/constants';
 import { createLoginServiceMock } from '@/common/testing/mocks/login-service.mock';
 import { createRegistrationServiceMock } from '@/common/testing/mocks/registration-service.mock';
@@ -101,6 +101,23 @@ describe('LoginResolver', () => {
     });
   });
 
+  describe('changePassword', () => {
+    it('should call the service with the user and input and return the token', async () => {
+      const user = buildSafeUser();
+      const input = { currentPassword: 'OldPassword123!', newPassword: 'NewPassword123!' };
+
+      loginServiceMock.changePassword.mockResolvedValue(MOCK_TOKEN);
+
+      const result = await resolver.changePassword(user, input);
+
+      expect(loginServiceMock.changePassword).toHaveBeenCalledWith(user, input);
+      expect(result).toEqual({
+        token: MOCK_TOKEN,
+        message: 'Password changed successfully',
+      });
+    });
+  });
+
   describe('suggestCodes', () => {
     it('should return the suggested codes from the service', async () => {
       const codes = ['@john_doe', '@doe_john', '@john_1234'];
@@ -153,6 +170,23 @@ describe('LoginResolver', () => {
 
       expect(accountServiceMock.recoverAccount).toHaveBeenCalledWith(input);
       expect(result).toEqual({ token: MOCK_TOKEN, message: 'Account recovered successfully' });
+    });
+  });
+
+  describe('changeCode', () => {
+    it('should call the service with the user and code and return the user, token and message', async () => {
+      const currentUser = buildSafeUser();
+      const user = buildUserType(buildSafeUser({ code: '@newcode' }));
+      accountServiceMock.changeCode.mockResolvedValue({ user, token: MOCK_TOKEN });
+
+      const result = await resolver.changeCode(currentUser, { code: '@newcode' });
+
+      expect(accountServiceMock.changeCode).toHaveBeenCalledWith(currentUser, '@newcode');
+      expect(result).toEqual({
+        user,
+        token: MOCK_TOKEN,
+        message: 'Code changed to @newcode successfully',
+      });
     });
   });
 });

@@ -185,4 +185,81 @@ describe('LoginService', () => {
       expect(loginRepoMock.updatePassword).not.toHaveBeenCalled();
     });
   });
+
+  describe('changePassword', () => {
+    const CURRENT_PASSWORD = 'OldPassword123!';
+    const NEW_PASSWORD = 'NewPassword123!';
+    const NEW_HASH = 'new-hashed';
+    const changeInput = { currentPassword: CURRENT_PASSWORD, newPassword: NEW_PASSWORD };
+
+    it('should replace the password, revoke sessions, audit and return a new token', async () => {
+      const user = buildSafeUser();
+      credentialsMock.validateById.mockResolvedValue(buildUser());
+      jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue(NEW_HASH);
+
+      const result = await service.changePassword(user, changeInput);
+
+      expect(result).toBe(MOCK_TOKEN);
+      expect(credentialsMock.validateById).toHaveBeenCalledWith(user.id, CURRENT_PASSWORD);
+      expect(hashUtil.hashPassword).toHaveBeenCalledWith(NEW_PASSWORD);
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+      expect(loginRepoMock.updatePassword).toHaveBeenCalledWith(user.id, NEW_HASH, prismaMock);
+      expect(tokenServiceMock.revokeAllSessions).toHaveBeenCalledWith(user.id, prismaMock);
+      expect(tokenServiceMock.sign).toHaveBeenCalledWith({
+        userId: user.id,
+        userCode: user.code,
+      });
+      expect(tokenServiceMock.revokeAllSessions.mock.invocationCallOrder[0]).toBeLessThan(
+        tokenServiceMock.sign.mock.invocationCallOrder[0],
+      );
+      expect(appEventEmitterMock.emitAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CHANGE_PASSWORD',
+          userId: user.id,
+          entityId: user.id,
+          entity: 'User',
+        }),
+      );
+    });
+
+    it('should propagate the error and change nothing when the current password is wrong', async () => {
+      credentialsMock.validateById.mockRejectedValue(
+        new BadRequestException('Password is incorrect'),
+      );
+
+      await expect(service.changePassword(buildSafeUser(), changeInput)).rejects.toThrow(
+        new BadRequestException('Password is incorrect'),
+      );
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(loginRepoMock.updatePassword).not.toHaveBeenCalled();
+      expect(tokenServiceMock.sign).not.toHaveBeenCalled();
+      expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when the new password equals the current one', async () => {
+      credentialsMock.validateById.mockResolvedValue(buildUser());
+
+      await expect(
+        service.changePassword(buildSafeUser(), {
+          currentPassword: CURRENT_PASSWORD,
+          newPassword: CURRENT_PASSWORD,
+        }),
+      ).rejects.toThrow(
+        new BadRequestException('New password must be different from the current password'),
+      );
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(loginRepoMock.updatePassword).not.toHaveBeenCalled();
+      expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+    });
+
+    it('should not sign a token nor audit when the transaction fails', async () => {
+      credentialsMock.validateById.mockResolvedValue(buildUser());
+      jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue(NEW_HASH);
+      loginRepoMock.updatePassword.mockRejectedValue(new Error('db down'));
+
+      await expect(service.changePassword(buildSafeUser(), changeInput)).rejects.toThrow('db down');
+      expect(tokenServiceMock.sign).not.toHaveBeenCalled();
+      expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+    });
+  });
 });
