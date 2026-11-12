@@ -7,28 +7,34 @@ jest.mock('bcrypt', () => ({
   compare: jest.fn(),
 }));
 
+// bcrypt's hash/compare are overloaded and jest.mocked() would type them from the callback
+// overload (returns void), so mock the promise overloads that hash.util actually uses.
+type HashFn = (data: string, saltOrRounds: number) => Promise<string>;
+type CompareFn = (data: string, encrypted: string) => Promise<boolean>;
+
 describe('hash.util', () => {
-  const bcryptMock = jest.mocked(bcrypt);
+  const hashMock = jest.mocked(bcrypt.hash as HashFn);
+  const compareMock = jest.mocked(bcrypt.compare as CompareFn);
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('hashPassword uses bcrypt.hash with configured salt rounds', async () => {
-    bcryptMock.hash.mockResolvedValue('hashed-value');
+    hashMock.mockResolvedValue('hashed-value');
 
     const result = await hashPassword('Password123!');
 
     expect(result).toBe('hashed-value');
-    expect(bcryptMock.hash).toHaveBeenCalledWith('Password123!', 10);
+    expect(hashMock).toHaveBeenCalledWith('Password123!', 10);
   });
 
   it('comparePassword delegates to bcrypt.compare', async () => {
-    bcryptMock.compare.mockResolvedValue(true);
+    compareMock.mockResolvedValue(true);
 
     const result = await comparePassword('Password123!', 'hashed-value');
 
     expect(result).toBe(true);
-    expect(bcryptMock.compare).toHaveBeenCalledWith('Password123!', 'hashed-value');
+    expect(compareMock).toHaveBeenCalledWith('Password123!', 'hashed-value');
   });
 });
