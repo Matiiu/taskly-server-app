@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs', 'dist/**', 'node_modules/**'],
+    ignores: ['eslint.config.mjs', 'commitlint.config.mjs', 'dist/**', 'node_modules/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
@@ -31,9 +31,7 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'error', // changed: error, not warn — unhandled promises in NestJS can silently break things
       '@typescript-eslint/no-unsafe-argument': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }], // added: ignore intentionally unused args prefixed with _
-      '@typescript-eslint/explicit-function-return-type': 'off', // added: too noisy for resolvers/controllers
       '@typescript-eslint/no-misused-promises': 'error', // added: catches async functions passed where sync is expected
-
       // General
       'no-console': 'warn', // added: encourages using a proper logger (NestJS Logger)
 
