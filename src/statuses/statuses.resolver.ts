@@ -9,6 +9,7 @@ import { CurrentUser } from '@/login/decorators/current-user.decorator';
 import { StatusType } from '@/statuses/entities/status.type';
 import { UpdateStatusColorInput } from '@/statuses/dto/update-status-color.input';
 import { StatusActionType } from '@/statuses/entities/status-action.type';
+import { STATUS_MESSAGES } from '@/statuses/constants/statuses-messages.constants';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 import { Can } from '@/authorization/decorators/can.decorator';
 import { PolicyGuard } from '@/authorization/guards/policy.guard';
@@ -53,7 +54,7 @@ export class StatusesResolver {
     const status = await this.statusesService.updateColor(workspaceId, userId, id, input);
 
     return {
-      message: `Status ${status.name} color updated successfully`,
+      message: STATUS_MESSAGES.COLOR_UPDATED(status.name),
       status,
     };
   }
@@ -69,7 +70,7 @@ export class StatusesResolver {
     const status = await this.statusesService.remove(workspaceId, userId, id);
 
     return {
-      message: `Status ${status.name} removed successfully`,
+      message: STATUS_MESSAGES.REMOVED(status.name),
       status,
     };
   }
