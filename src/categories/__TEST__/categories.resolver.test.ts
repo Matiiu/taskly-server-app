@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { PolicyGuard } from '@/authorization/guards/policy.guard';
 import { CategoriesResolver } from '@/categories/categories.resolver';
 import { CategoriesService } from '@/categories/categories.service';
+import { CATEGORY_MESSAGES } from '@/categories/constants/categories-messages.constants';
 import { buildCategory } from '@/common/testing/categories/factories/categories.factory';
 import { createCategoriesServiceMock } from '@/common/testing/categories/mocks/categories-service.mock';
 import { buildResolverSchema } from '@/common/testing/common/factories/gql-schema.factory';
@@ -74,7 +75,7 @@ describe('CategoriesResolver', () => {
       });
 
       expect(result).toEqual({
-        message: `Category ${category.name} color updated successfully`,
+        message: CATEGORY_MESSAGES.COLOR_UPDATED(category.name),
         category,
       });
       expect(categoriesServiceMock.updateColor).toHaveBeenCalledWith(
@@ -103,7 +104,7 @@ describe('CategoriesResolver', () => {
       const result = await resolver.remove(USER_ID, WORKSPACE_ID, category.id);
 
       expect(result).toEqual({
-        message: `Category ${category.name} removed successfully`,
+        message: CATEGORY_MESSAGES.REMOVED(category.name),
         category,
       });
       expect(categoriesServiceMock.remove).toHaveBeenCalledWith(WORKSPACE_ID, USER_ID, category.id);
