@@ -4,8 +4,8 @@ import { BadRequestException } from '@nestjs/common';
 import { CredentialsService } from '@/login/credentials.service';
 import { LoginRepository } from '@/login/login.repository';
 import * as hashUtil from '@/common/utils/hash.util';
-import { buildUser } from '@/common/testing/factories/users.factory';
-import { createLoginRepositoryMock } from '@/common/testing/mocks/login-repository.mock';
+import { buildUser } from '@/common/testing/users/factories/users.factory';
+import { createLoginRepositoryMock } from '@/common/testing/login/mocks/login-repository.mock';
 
 const EMAIL = 'john@example.com';
 const PASSWORD = 'Password123!';

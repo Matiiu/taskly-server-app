@@ -15,7 +15,7 @@ describe('hash.util', () => {
   });
 
   it('hashPassword uses bcrypt.hash with configured salt rounds', async () => {
-    bcryptMock.hash.mockResolvedValue('hashed-value' as never);
+    bcryptMock.hash.mockResolvedValue('hashed-value');
 
     const result = await hashPassword('Password123!');
 
@@ -24,7 +24,7 @@ describe('hash.util', () => {
   });
 
   it('comparePassword delegates to bcrypt.compare', async () => {
-    bcryptMock.compare.mockResolvedValue(true as never);
+    bcryptMock.compare.mockResolvedValue(true);
 
     const result = await comparePassword('Password123!', 'hashed-value');
 

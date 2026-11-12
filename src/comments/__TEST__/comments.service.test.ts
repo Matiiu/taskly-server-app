@@ -4,13 +4,13 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CommentsService } from '@/comments/comments.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
-import { createAppEventEmitterMock } from '@/common/testing/mocks/app-event-emitter.mock';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
+import { createAppEventEmitterMock } from '@/common/testing/common/mocks/app-event-emitter.mock';
 import {
   buildCommentWithUser,
   buildCommentReplyWithUser,
-} from '@/common/testing/factories/domain.factory';
-import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';
+} from '@/common/testing/comments/factories/comments.factory';
+import { createPaginationMetaMock } from '@/common/testing/common/mocks/pagination.mock';
 
 let prisma: ReturnType<typeof createPrismaMock>;
 let appEventEmitter: ReturnType<typeof createAppEventEmitterMock>;

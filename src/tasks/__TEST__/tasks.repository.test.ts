@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TasksRepository } from '@/tasks/tasks.repository';
 import { PrismaService } from '@/prisma/prisma.service';
 import { TaskRelation } from '@/tasks/enums/task-relation.enums';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
 
 const USER_ID = 'user-id-1';
 const CREATED_WHERE = { createdById: USER_ID };

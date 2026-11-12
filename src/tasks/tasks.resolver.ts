@@ -17,13 +17,18 @@ import { TaskDetailType } from '@/tasks/entities/task-detail.type';
 import type { TaskWithRelations } from '@/tasks/tasks.repository';
 import type { Workspace } from 'generated/prisma/client';
 import { MutationPayload } from '@/common/entities/mutation-payload.factory';
-import { TasksFiltersInput } from './dto/tasks-filters.input';
+import { TasksFiltersInput } from '@/tasks/dto/tasks-filters.input';
+import { TASK_MESSAGES } from '@/tasks/constants/tasks-messages.constants';
 
-const CreateTaskPayload = MutationPayload('CreateTaskPayload', {});
-const UpdateTaskPayload = MutationPayload('UpdateTaskPayload', {});
-const UpdateTaskStatusPayload = MutationPayload('UpdateTaskStatusPayload', {});
-const UpdateTaskCategoryPayload = MutationPayload('UpdateTaskCategoryPayload', {});
-const RemoveTaskPayload = MutationPayload('RemoveTaskPayload', {});
+const CreateTaskPayload = MutationPayload('CreateTaskPayload', { task: TaskDetailType });
+const UpdateTaskPayload = MutationPayload('UpdateTaskPayload', { task: TaskDetailType });
+const UpdateTaskStatusPayload = MutationPayload('UpdateTaskStatusPayload', {
+  task: TaskDetailType,
+});
+const UpdateTaskCategoryPayload = MutationPayload('UpdateTaskCategoryPayload', {
+  task: TaskDetailType,
+});
+const RemoveTaskPayload = MutationPayload('RemoveTaskPayload', { task: TaskDetailType });
 
 @Resolver()
 @UseGuards(JwtAuthGuard)
@@ -39,9 +44,7 @@ export class TasksResolver {
     @Args('input') input: CreateTaskInput,
   ): Promise<InstanceType<typeof CreateTaskPayload>> {
     const task = await this.tasksService.create(userId, workspaceId, input);
-    return {
-      message: `Task ${task?.title} created successfully`,
-    };
+    return { message: TASK_MESSAGES.CREATED(task), task };
   }
 
   @Query(() => PaginatedTaskSummaryType, { name: 'tasks' })
@@ -77,9 +80,7 @@ export class TasksResolver {
   ): Promise<InstanceType<typeof UpdateTaskPayload>> {
     const task = await this.tasksService.update(existingTask, userId, input);
 
-    return {
-      message: `Task ${task.code} ${task.title} updated successfully`,
-    };
+    return { message: TASK_MESSAGES.UPDATED(task), task };
   }
 
   @Mutation(() => UpdateTaskStatusPayload, { name: 'updateTaskStatus' })
@@ -93,9 +94,7 @@ export class TasksResolver {
   ): Promise<InstanceType<typeof UpdateTaskStatusPayload>> {
     const task = await this.tasksService.updateStatus(existingTask, userId, input);
 
-    return {
-      message: `The status of task ${task.code} ${task.title} updated successfully to ${task.status?.name}`,
-    };
+    return { message: TASK_MESSAGES.STATUS_UPDATED(task), task };
   }
 
   // No category-specific task permission: changing the category is editing the task
@@ -110,9 +109,7 @@ export class TasksResolver {
   ): Promise<InstanceType<typeof UpdateTaskCategoryPayload>> {
     const task = await this.tasksService.updateCategory(existingTask, userId, input);
 
-    return {
-      message: `The category of task ${task.code} ${task.title} updated successfully to ${task.category?.name}`,
-    };
+    return { message: TASK_MESSAGES.CATEGORY_UPDATED(task), task };
   }
 
   @Mutation(() => RemoveTaskPayload, { name: 'removeTask' })
@@ -125,8 +122,6 @@ export class TasksResolver {
   ): Promise<InstanceType<typeof RemoveTaskPayload>> {
     const task = await this.tasksService.remove(existingTask, userId);
 
-    return {
-      message: `Task ${task.code} ${task.title} removed successfully`,
-    };
+    return { message: TASK_MESSAGES.REMOVED(task), task };
   }
 }

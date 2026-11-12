@@ -127,7 +127,8 @@ Shared code lives in `src/common/` (constants, dto, entities, enums, exceptions,
 
 - **Only write tests when the user asks for them** (or says yes when you offer). Otherwise suggest which tests to add.
 - Tests for each layer go in `src/<feature>/__TEST__/<file>.test.ts` (Jest + ts-jest).
-- Use shared mocks and factories from `src/common/testing/` (`prisma.mock.ts`, `app-event-emitter.mock.ts`, `*-service.mock.ts`, `domain.factory.ts`, `gql-guard.factory.ts`). A mock used by one test file may live in that file; once a second file needs it, move it to `src/common/testing/`.
+- Use shared mocks and factories from `src/common/testing/`. It mirrors the `src/` feature folders: `src/common/testing/<feature>/{factories,mocks,constants}/` (e.g. `users/factories/users.factory.ts`, `users/mocks/users-service.mock.ts`, `prisma/mocks/prisma.mock.ts`). Shared helpers live in `common/` (`app-event-emitter.mock.ts`, `pagination.mock.ts`, `gql-guard.factory.ts`, `gql-schema.factory.ts`).
+- A mock used by one test file may live in that file; once a second file needs it, move it to `src/common/testing/<feature>/`.
 - Repository tests mock Prisma. Service tests mock repositories and the event emitter. Resolver tests mock the service.
 - Coverage threshold is 80% (resolvers have a lower per-glob threshold in `jest.config.ts`).
 - Files excluded by `collectCoverageFrom` in `jest.config.ts` (modules, inputs, types, enums, configs, ...) don't need tests.
