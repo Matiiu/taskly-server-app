@@ -5,9 +5,12 @@ import { TargetUserGuard } from '@/users/guards/target-user.guard';
 import { UsersService } from '@/users/users.service';
 import { UserNotFoundException } from '@/common/exceptions/user-not-found.exception';
 import { AuthenticatedUserNotFoundException } from '@/common/exceptions/authenticated-user-not-found.exception';
-import { buildGuardContext, mockGqlContext } from '@/common/testing/factories/gql-guard.factory';
-import { buildSafeUser } from '@/common/testing/factories/users.factory';
-import { createUsersServiceMock } from '@/common/testing/mocks/users-service.mock';
+import {
+  buildGuardContext,
+  mockGqlContext,
+} from '@/common/testing/common/factories/gql-guard.factory';
+import { buildSafeUser } from '@/common/testing/users/factories/users.factory';
+import { createUsersServiceMock } from '@/common/testing/users/mocks/users-service.mock';
 
 describe('TargetUserGuard', () => {
   const context = buildGuardContext();

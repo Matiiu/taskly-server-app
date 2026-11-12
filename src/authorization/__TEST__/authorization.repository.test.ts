@@ -1,6 +1,6 @@
 import { AuthorizationRepository } from '@/authorization/authorization.repository';
 import { PrismaService } from '@/prisma/prisma.service';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
 import { DEFAULT_TASK_SELECT } from '@/tasks/tasks.repository';
 
 describe('AuthorizationRepository', () => {

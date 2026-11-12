@@ -169,7 +169,7 @@ GraphQL Playground is available at `http://localhost:3000/graphql` (when `GRAPHQ
 ## Testing
 
 - Unit tests live next to the code they cover, under `src/**/__TEST__/*.test.ts`.
-- Shared mocks/factories live in `src/common/testing/` (Prisma mocks, event emitter mock, entity factories).
+- Shared mocks/factories live in `src/common/testing/<feature>/{factories,mocks}/`, mirroring `src/` (shared helpers in `src/common/testing/common/`).
 - Coverage threshold is enforced at **80%** (branches/functions/lines/statements) globally, with a relaxed threshold for `*.resolver.ts` files, since GraphQL decorator type-factory lambdas (e.g. `@Query(() => Type)`) are only invoked by the schema builder, not by unit tests.
 
 ```bash

@@ -5,8 +5,8 @@ import { TargetUserGuard } from '@/users/guards/target-user.guard';
 import { UsersResolver } from '@/users/users.resolver';
 import { UsersService } from '@/users/users.service';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
-import { buildSafeUser, buildUserType } from '@/common/testing/factories/users.factory';
-import { createUsersServiceMock } from '@/common/testing/mocks/users-service.mock';
+import { buildSafeUser, buildUserType } from '@/common/testing/users/factories/users.factory';
+import { createUsersServiceMock } from '@/common/testing/users/mocks/users-service.mock';
 
 const USER_CODE = '@johndoe';
 const ACTOR_ID = 'actor-id';

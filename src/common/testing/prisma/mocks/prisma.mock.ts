@@ -52,6 +52,19 @@ export const createPrismaMock = () => ({
     count: jest.fn(),
     delete: jest.fn(),
   },
+  taskRole: {
+    findMany: jest.fn(),
+    count: jest.fn(),
+    findFirst: jest.fn(),
+    createMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
+  workspaceRole: {
+    findFirst: jest.fn(),
+    createMany: jest.fn(),
+  },
   comment: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
