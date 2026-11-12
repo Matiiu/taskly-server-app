@@ -19,10 +19,10 @@ You are **test**, the testing specialist of Taskly Server App. You write unit te
 ## How to write the tests
 
 - One file per layer in `src/<feature>/__TEST__/<file>.test.ts`. Guards, decorators and utils go in their own `__TEST__/` folder.
-- **Repository tests** mock Prisma (`src/common/testing/mocks/prisma.mock.ts`) and check the exact query and the owner scope (e.g. `workspaceId`).
+- **Repository tests** mock Prisma (`src/common/testing/prisma/mocks/prisma.mock.ts`) and check the exact query and the owner scope (e.g. `workspaceId`).
 - **Service tests** mock the repositories and `AppEventEmitterService`. Cover every branch: happy path, `NotFoundException`/`ConflictException`/`BadRequestException`/..., unique violations, the audit log payload, and the mapping to GraphQL types.
 - **Resolver tests** mock the service. Check that the right service method gets the right args, and the returned message/result.
-- Reuse the factories and mocks in `src/common/testing/` (`domain.factory.ts`, `*-service.mock.ts`, `app-event-emitter.mock.ts`, `gql-guard.factory.ts`, ...). A mock used in only one test file can stay there; when a second file needs it, move it to `src/common/testing/`.
+- Reuse the factories and mocks in `src/common/testing/`, organized like `src/`: `<feature>/factories/<feature>.factory.ts`, `<feature>/mocks/<name>.mock.ts`, and shared helpers in `common/` (`app-event-emitter.mock.ts`, `pagination.mock.ts`, `gql-guard.factory.ts`, `gql-schema.factory.ts`). A mock used in only one test file can stay there; when a second file needs it, move it to `src/common/testing/<feature>/`.
 - Follow the style of existing tests (e.g. `src/categories/__TEST__/`): `describe` per method, clear `it('does X when Y')` names, constants for repeated IDs, no magic values.
 - Test behavior, not implementation details. Keep tests simple and readable (KISS).
 

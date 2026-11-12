@@ -7,13 +7,17 @@ import { TokenService } from '@/login/token.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UsersService } from '@/users/users.service';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
-import { buildSafeUser, buildUser, buildUserType } from '@/common/testing/factories/users.factory';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
-import { createUsersServiceMock } from '@/common/testing/mocks/users-service.mock';
-import { createCredentialsServiceMock } from '@/common/testing/mocks/credentials-service.mock';
-import { createTokenServiceMock } from '@/common/testing/mocks/token-service.mock';
-import { createAppEventEmitterMock } from '@/common/testing/mocks/app-event-emitter.mock';
-import { MOCK_TOKEN } from '@/common/testing/constants';
+import {
+  buildSafeUser,
+  buildUser,
+  buildUserType,
+} from '@/common/testing/users/factories/users.factory';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
+import { createUsersServiceMock } from '@/common/testing/users/mocks/users-service.mock';
+import { createCredentialsServiceMock } from '@/common/testing/login/mocks/credentials-service.mock';
+import { createTokenServiceMock } from '@/common/testing/login/mocks/token-service.mock';
+import { createAppEventEmitterMock } from '@/common/testing/common/mocks/app-event-emitter.mock';
+import { MOCK_TOKEN } from '@/common/testing/login/constants/login.constants';
 import { addDays } from '@/common/utils/date.util';
 import { ACCOUNT_RECOVERY_DAYS } from '@/users/constants/users.constants';
 import { toUserSnapshot } from '@/users/utils/user-snapshot.util';

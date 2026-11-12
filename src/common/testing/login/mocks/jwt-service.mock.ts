@@ -1,4 +1,4 @@
-import { MOCK_TOKEN } from '@/common/testing/constants';
+import { MOCK_TOKEN } from '@/common/testing/login/constants/login.constants';
 
 export const createJwtServiceMock = (token: string = MOCK_TOKEN) => ({
   signAsync: jest.fn().mockResolvedValue(token),

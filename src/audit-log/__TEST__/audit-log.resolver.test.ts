@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { AuditLogResolver } from '@/audit-log/audit-log.resolver';
 import { AuditLogService } from '@/audit-log/audit-log.service';
-import { createAuditLogServiceMock } from '@/common/testing/mocks/audit-log-service.mock';
+import { createAuditLogServiceMock } from '@/common/testing/audit-log/mocks/audit-log-service.mock';
 
 describe('AuditLogResolver', () => {
   it('is defined', async () => {

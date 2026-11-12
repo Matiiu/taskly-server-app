@@ -7,11 +7,15 @@ import { LoginService } from '@/login/login.service';
 import { RegistrationService } from '@/login/registration.service';
 import { AccountService } from '@/login/account.service';
 import { DocumentType } from 'generated/prisma/enums';
-import { buildSafeUser, buildUser, buildUserType } from '@/common/testing/factories/users.factory';
-import { MOCK_TOKEN } from '@/common/testing/constants';
-import { createLoginServiceMock } from '@/common/testing/mocks/login-service.mock';
-import { createRegistrationServiceMock } from '@/common/testing/mocks/registration-service.mock';
-import { createAccountServiceMock } from '@/common/testing/mocks/account-service.mock';
+import {
+  buildSafeUser,
+  buildUser,
+  buildUserType,
+} from '@/common/testing/users/factories/users.factory';
+import { MOCK_TOKEN } from '@/common/testing/login/constants/login.constants';
+import { createLoginServiceMock } from '@/common/testing/login/mocks/login-service.mock';
+import { createRegistrationServiceMock } from '@/common/testing/login/mocks/registration-service.mock';
+import { createAccountServiceMock } from '@/common/testing/login/mocks/account-service.mock';
 
 let loginServiceMock: ReturnType<typeof createLoginServiceMock>;
 let registrationServiceMock: ReturnType<typeof createRegistrationServiceMock>;

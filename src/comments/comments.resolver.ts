@@ -12,6 +12,7 @@ import { PaginatedCommentType } from '@/comments/entities/paginated-comment.type
 import { PaginatedCommentReplyType } from '@/comments/entities/paginated-comment-reply.type';
 import { CommentActionType } from '@/comments/entities/comment-action.type';
 import { CommentReplyActionType } from '@/comments/entities/comment-reply-action.type';
+import { COMMENT_MESSAGES } from '@/comments/constants/comments-messages.constants';
 import type { Comment, CommentReply, Task, User } from 'generated/prisma/client';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
@@ -48,7 +49,7 @@ export class CommentsResolver {
     const comment = await this.commentsService.create(userId, input);
 
     return {
-      message: 'Comment created successfully',
+      message: COMMENT_MESSAGES.CREATED,
       comment,
     };
   }
@@ -62,7 +63,7 @@ export class CommentsResolver {
     const comment = await this.commentsService.update(userId, id, input);
 
     return {
-      message: 'Comment updated successfully',
+      message: COMMENT_MESSAGES.UPDATED,
       comment,
     };
   }
@@ -75,7 +76,7 @@ export class CommentsResolver {
     const comment = await this.commentsService.remove(userId, id);
 
     return {
-      message: 'Comment removed successfully',
+      message: COMMENT_MESSAGES.REMOVED,
       comment,
     };
   }
@@ -88,7 +89,7 @@ export class CommentsResolver {
     const reply = await this.commentsService.createReply(userId, input);
 
     return {
-      message: 'Comment reply created successfully',
+      message: COMMENT_MESSAGES.REPLY_CREATED,
       reply,
     };
   }
@@ -102,7 +103,7 @@ export class CommentsResolver {
     const reply = await this.commentsService.updateReply(userId, id, input);
 
     return {
-      message: 'Comment reply updated successfully',
+      message: COMMENT_MESSAGES.REPLY_UPDATED,
       reply,
     };
   }
@@ -115,7 +116,7 @@ export class CommentsResolver {
     const reply = await this.commentsService.removeReply(userId, id);
 
     return {
-      message: 'Comment reply removed successfully',
+      message: COMMENT_MESSAGES.REPLY_REMOVED,
       reply,
     };
   }

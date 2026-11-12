@@ -6,9 +6,9 @@ import { TokenService } from '@/login/token.service';
 import { LoginRepository } from '@/login/login.repository';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { JwtPayload } from '@/login/types/login.type';
-import { createJwtValidPayloadMock } from '@/common/testing/mocks/jwt-auth.mock';
-import { MOCK_TOKEN } from '@/common/testing/constants';
-import { buildSafeUser } from '@/common/testing/factories/users.factory';
+import { createJwtValidPayloadMock } from '@/common/testing/login/mocks/jwt-auth.mock';
+import { MOCK_TOKEN } from '@/common/testing/login/constants/login.constants';
+import { buildSafeUser } from '@/common/testing/users/factories/users.factory';
 
 const SESSION_ENDED = new UnauthorizedException('Session ended. Please sign in again');
 

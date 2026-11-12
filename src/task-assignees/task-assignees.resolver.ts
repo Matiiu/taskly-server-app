@@ -7,6 +7,7 @@ import { AddTaskAssigneeInput } from '@/task-assignees/dto/add-task-assignee.inp
 import { TaskAssigneeActionType } from '@/task-assignees/entities/task-assignee-action.type';
 import { PaginatedTaskAssigneesType } from '@/task-assignees/entities/paginated-task-assignees.type';
 import { TaskAssigneesService } from '@/task-assignees/task-assignees.service';
+import { TASK_ASSIGNEE_MESSAGES } from '@/task-assignees/constants/task-assignees-messages.constants';
 import type { Task, User } from 'generated/prisma/client';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 
@@ -23,7 +24,7 @@ export class TaskAssigneesResolver {
     const assignee = await this.taskAssigneesService.create(userId, input);
 
     return {
-      message: `Assignee ${assignee.code} added successfully`,
+      message: TASK_ASSIGNEE_MESSAGES.ADDED(assignee.code),
       assignee,
     };
   }
@@ -48,7 +49,7 @@ export class TaskAssigneesResolver {
     const assignee = await this.taskAssigneesService.remove(userId, taskId, assigneeId);
 
     return {
-      message: `Assignee ${assignee.code} removed successfully`,
+      message: TASK_ASSIGNEE_MESSAGES.REMOVED(assignee.code),
       assignee,
     };
   }

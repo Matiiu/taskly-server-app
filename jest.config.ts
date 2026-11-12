@@ -5,7 +5,9 @@ const config: Config = {
   rootDir: 'src',
   testRegex: '.*\\.(spec|test)\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    // Compile with full type info: with isolatedModules, decorator metadata falls back to
+    // `typeof X === 'function' ? X : Object` for imported types, adding branches no test can reach.
+    '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: { isolatedModules: false } }],
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',

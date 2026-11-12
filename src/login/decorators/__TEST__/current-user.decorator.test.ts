@@ -2,9 +2,12 @@ import { ExecutionContext, InternalServerErrorException } from '@nestjs/common';
 import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
 
 import { CurrentUser } from '@/login/decorators/current-user.decorator';
-import { buildGuardContext, mockGqlContext } from '@/common/testing/factories/gql-guard.factory';
-import { buildSafeUser } from '@/common/testing/factories/users.factory';
-import { createJwtValidPayloadMock } from '@/common/testing/mocks/jwt-auth.mock';
+import {
+  buildGuardContext,
+  mockGqlContext,
+} from '@/common/testing/common/factories/gql-guard.factory';
+import { buildSafeUser } from '@/common/testing/users/factories/users.factory';
+import { createJwtValidPayloadMock } from '@/common/testing/login/mocks/jwt-auth.mock';
 
 type ParamFactory = (data: unknown, ctx: ExecutionContext) => unknown;
 

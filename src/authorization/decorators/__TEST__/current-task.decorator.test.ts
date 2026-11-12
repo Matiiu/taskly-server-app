@@ -2,7 +2,10 @@ import { ExecutionContext, InternalServerErrorException } from '@nestjs/common';
 import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
 
 import { CurrentTask } from '@/authorization/decorators/current-task.decorator';
-import { buildGuardContext, mockGqlContext } from '@/common/testing/factories/gql-guard.factory';
+import {
+  buildGuardContext,
+  mockGqlContext,
+} from '@/common/testing/common/factories/gql-guard.factory';
 
 type ParamFactory = (data: unknown, ctx: ExecutionContext) => unknown;
 

@@ -7,6 +7,7 @@ import { CategoriesService } from '@/categories/categories.service';
 import { PaginatedCategoriesType } from '@/categories/entities/paginated-categories.type';
 import { CategoryActionType } from '@/categories/entities/category-action.type';
 import { UpdateCategoryColorInput } from '@/categories/dto/update-category-color.input';
+import { CATEGORY_MESSAGES } from '@/categories/constants/categories-messages.constants';
 import type { User, Category, Workspace } from 'generated/prisma/client';
 import { PaginationArgsInput } from '@/common/dto/pagination-args.input';
 import { Can } from '@/authorization/decorators/can.decorator';
@@ -42,7 +43,7 @@ export class CategoriesResolver {
     const category = await this.categoriesService.updateColor(workspaceId, userId, id, input);
 
     return {
-      message: `Category ${category.name} color updated successfully`,
+      message: CATEGORY_MESSAGES.COLOR_UPDATED(category.name),
       category,
     };
   }
@@ -58,7 +59,7 @@ export class CategoriesResolver {
     const category = await this.categoriesService.remove(workspaceId, userId, id);
 
     return {
-      message: `Category ${category.name} removed successfully`,
+      message: CATEGORY_MESSAGES.REMOVED(category.name),
       category,
     };
   }

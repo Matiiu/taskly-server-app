@@ -1,6 +1,6 @@
 import { CategoriesRepository } from '@/categories/categories.repository';
 import { PrismaService } from '@/prisma/prisma.service';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
 
 describe('CategoriesRepository', () => {
   let repository: CategoriesRepository;

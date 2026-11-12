@@ -1,6 +1,6 @@
 import { LoginRepository } from '@/login/login.repository';
 import { PrismaService } from '@/prisma/prisma.service';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
 
 // Session queries are covered through token.service.test.ts; these cover the credential methods.
 describe('LoginRepository', () => {

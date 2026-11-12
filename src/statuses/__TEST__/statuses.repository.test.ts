@@ -1,6 +1,6 @@
 import { StatusesRepository } from '@/statuses/statuses.repository';
 import { PrismaService } from '@/prisma/prisma.service';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
 
 describe('StatusesRepository', () => {
   let repository: StatusesRepository;
