@@ -29,12 +29,8 @@ export default tseslint.config(
       // TypeScript
       '@typescript-eslint/no-explicit-any': 'warn', // changed: warn instead of fully off
       '@typescript-eslint/no-floating-promises': 'error', // changed: error, not warn — unhandled promises in NestJS can silently break things
-      '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }], // added: ignore intentionally unused args prefixed with _
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-misused-promises': 'error', // added: catches async functions passed where sync is expected
       // General
       'no-console': 'warn', // added: encourages using a proper logger (NestJS Logger)
