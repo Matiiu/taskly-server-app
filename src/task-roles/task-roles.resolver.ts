@@ -12,11 +12,18 @@ import { CreateTaskRoleInput } from '@/task-roles/dto/create-task-role.input';
 import { UpdateTaskRoleInput } from '@/task-roles/dto/update-task-role.input';
 import { TaskRoleType } from '@/task-roles/entities/task-role.type';
 import { PaginatedTaskRolesType } from '@/task-roles/entities/paginated-task-roles.type';
+import { TASK_ROLE_MESSAGES } from '@/task-roles/constants/task-roles-messages.constants';
 import type { TaskRole, User, Workspace } from 'generated/prisma/client';
 
-const CreateTaskRolePayload = MutationPayload('CreateTaskRolePayload', {});
-const UpdateTaskRolePayload = MutationPayload('UpdateTaskRolePayload', {});
-const RemoveTaskRolePayload = MutationPayload('RemoveTaskRolePayload', {});
+const CreateTaskRolePayload = MutationPayload('CreateTaskRolePayload', {
+  taskRole: TaskRoleType,
+});
+const UpdateTaskRolePayload = MutationPayload('UpdateTaskRolePayload', {
+  taskRole: TaskRoleType,
+});
+const RemoveTaskRolePayload = MutationPayload('RemoveTaskRolePayload', {
+  taskRole: TaskRoleType,
+});
 
 // PolicyGuard checks the user against `workspaceId`; the service then only touches roles of that workspace.
 @Resolver()
@@ -55,7 +62,7 @@ export class TaskRolesResolver {
     @Args('input') input: CreateTaskRoleInput,
   ): Promise<InstanceType<typeof CreateTaskRolePayload>> {
     const taskRole = await this.taskRolesService.create(workspaceId, userId, input);
-    return { message: `Task role ${taskRole.name} created successfully` };
+    return { message: TASK_ROLE_MESSAGES.CREATED(taskRole.name), taskRole };
   }
 
   @Mutation(() => UpdateTaskRolePayload, { name: 'updateTaskRole' })
@@ -68,7 +75,7 @@ export class TaskRolesResolver {
     @Args('input') input: UpdateTaskRoleInput,
   ): Promise<InstanceType<typeof UpdateTaskRolePayload>> {
     const taskRole = await this.taskRolesService.update(workspaceId, userId, id, input);
-    return { message: `Task role ${taskRole.name} updated successfully` };
+    return { message: TASK_ROLE_MESSAGES.UPDATED(taskRole.name), taskRole };
   }
 
   @Mutation(() => RemoveTaskRolePayload, { name: 'removeTaskRole' })
@@ -80,6 +87,6 @@ export class TaskRolesResolver {
     @Args('id', { type: () => ID }) id: TaskRole['id'],
   ): Promise<InstanceType<typeof RemoveTaskRolePayload>> {
     const taskRole = await this.taskRolesService.remove(workspaceId, userId, id);
-    return { message: `Task role ${taskRole.name} removed successfully` };
+    return { message: TASK_ROLE_MESSAGES.REMOVED(taskRole.name), taskRole };
   }
 }
