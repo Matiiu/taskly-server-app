@@ -1,8 +1,16 @@
+// Squash commits created before commitlint existed. They're already in develop/main
+// and can't be renamed without rewriting history, so commitlint skips them.
+const LEGACY_SQUASH_TITLES =
+  /^(Develop|Test\/coverage thresholds|Fix\/build excludes tests|Chore\/ci workflow) \(#\d+\)/;
+
 export default {
   // Start from the standard Conventional Commits rules: allowed types
   // (build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test),
   // lowercase type, subject not empty, no period at the end, etc.
   extends: ['@commitlint/config-conventional'],
+
+  // Skip the legacy squash commits above.
+  ignores: [(message) => LEGACY_SQUASH_TITLES.test(message)],
 
   // Your own rules on top. Each one is [level, when, value]:
   //   level: 2 = error (blocks the commit), 1 = warning, 0 = off
