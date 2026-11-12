@@ -1,15 +1,22 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { GraphQLField, GraphQLSchema } from 'graphql';
 
 import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { CommentsResolver } from '@/comments/comments.resolver';
 import { CommentsService } from '@/comments/comments.service';
+import { COMMENT_MESSAGES } from '@/comments/constants/comments-messages.constants';
 import {
   buildComment,
   buildCommentReply,
 } from '@/common/testing/comments/factories/comments.factory';
 import { createCommentsServiceMock } from '@/common/testing/comments/mocks/comments-service.mock';
+import { buildResolverSchema } from '@/common/testing/common/factories/gql-schema.factory';
 import { createPaginationMetaMock } from '@/common/testing/common/mocks/pagination.mock';
+
+const USER_ID = 'user-id-1';
+const TASK_ID = 'task-id-1';
+const COMMENT_ID = 'comment-id-1';
 
 describe('CommentsResolver', () => {
   let resolver: CommentsResolver;
@@ -35,14 +42,10 @@ describe('CommentsResolver', () => {
     const expected = { comments: [comment], meta: createPaginationMetaMock({ limit: 5 }) };
     commentsServiceMock.findManyByTask.mockResolvedValue(expected);
 
-    const result = await resolver.findMyTaskComments('user-id-1', 'task-id-1', pagination);
+    const result = await resolver.findMyTaskComments(USER_ID, TASK_ID, pagination);
 
     expect(result).toEqual(expected);
-    expect(commentsServiceMock.findManyByTask).toHaveBeenCalledWith(
-      'user-id-1',
-      'task-id-1',
-      pagination,
-    );
+    expect(commentsServiceMock.findManyByTask).toHaveBeenCalledWith(USER_ID, TASK_ID, pagination);
   });
 
   it('findMyCommentReplies delegates to service', async () => {
@@ -51,25 +54,25 @@ describe('CommentsResolver', () => {
     const expected = { replies: [reply], meta: createPaginationMetaMock({ page: 2, limit: 3 }) };
     commentsServiceMock.findManyRepliesByComment.mockResolvedValue(expected);
 
-    const result = await resolver.findMyCommentReplies('user-id-1', 'comment-id-1', pagination);
+    const result = await resolver.findMyCommentReplies(USER_ID, COMMENT_ID, pagination);
 
     expect(result).toEqual(expected);
     expect(commentsServiceMock.findManyRepliesByComment).toHaveBeenCalledWith(
-      'user-id-1',
-      'comment-id-1',
+      USER_ID,
+      COMMENT_ID,
       pagination,
     );
   });
 
   it('createMyTaskComment returns action payload', async () => {
     const comment = buildComment({ content: 'New comment' });
-    const input = { taskId: 'task-id-1', content: 'New comment' };
+    const input = { taskId: TASK_ID, content: 'New comment' };
     commentsServiceMock.create.mockResolvedValue(comment);
 
-    const result = await resolver.createMyTaskComment('user-id-1', input);
+    const result = await resolver.createMyTaskComment(USER_ID, input);
 
-    expect(result).toEqual({ message: 'Comment created successfully', comment });
-    expect(commentsServiceMock.create).toHaveBeenCalledWith('user-id-1', input);
+    expect(result).toEqual({ message: COMMENT_MESSAGES.CREATED, comment });
+    expect(commentsServiceMock.create).toHaveBeenCalledWith(USER_ID, input);
   });
 
   it('updateMyTaskComment returns action payload', async () => {
@@ -77,31 +80,31 @@ describe('CommentsResolver', () => {
     const input = { content: 'Updated content' };
     commentsServiceMock.update.mockResolvedValue(comment);
 
-    const result = await resolver.updateMyTaskComment('user-id-1', comment.id, input);
+    const result = await resolver.updateMyTaskComment(USER_ID, comment.id, input);
 
-    expect(result).toEqual({ message: 'Comment updated successfully', comment });
-    expect(commentsServiceMock.update).toHaveBeenCalledWith('user-id-1', comment.id, input);
+    expect(result).toEqual({ message: COMMENT_MESSAGES.UPDATED, comment });
+    expect(commentsServiceMock.update).toHaveBeenCalledWith(USER_ID, comment.id, input);
   });
 
   it('removeMyTaskComment returns action payload', async () => {
     const comment = buildComment({ active: false });
     commentsServiceMock.remove.mockResolvedValue(comment);
 
-    const result = await resolver.removeMyTaskComment('user-id-1', comment.id);
+    const result = await resolver.removeMyTaskComment(USER_ID, comment.id);
 
-    expect(result).toEqual({ message: 'Comment removed successfully', comment });
-    expect(commentsServiceMock.remove).toHaveBeenCalledWith('user-id-1', comment.id);
+    expect(result).toEqual({ message: COMMENT_MESSAGES.REMOVED, comment });
+    expect(commentsServiceMock.remove).toHaveBeenCalledWith(USER_ID, comment.id);
   });
 
   it('createMyCommentReply returns action payload', async () => {
     const reply = buildCommentReply({ content: 'Thanks' });
-    const input = { commentId: 'comment-id-1', content: 'Thanks' };
+    const input = { commentId: COMMENT_ID, content: 'Thanks' };
     commentsServiceMock.createReply.mockResolvedValue(reply);
 
-    const result = await resolver.createMyCommentReply('user-id-1', input);
+    const result = await resolver.createMyCommentReply(USER_ID, input);
 
-    expect(result).toEqual({ message: 'Comment reply created successfully', reply });
-    expect(commentsServiceMock.createReply).toHaveBeenCalledWith('user-id-1', input);
+    expect(result).toEqual({ message: COMMENT_MESSAGES.REPLY_CREATED, reply });
+    expect(commentsServiceMock.createReply).toHaveBeenCalledWith(USER_ID, input);
   });
 
   it('updateMyCommentReply returns action payload', async () => {
@@ -109,20 +112,20 @@ describe('CommentsResolver', () => {
     const input = { content: 'Edited' };
     commentsServiceMock.updateReply.mockResolvedValue(reply);
 
-    const result = await resolver.updateMyCommentReply('user-id-1', reply.id, input);
+    const result = await resolver.updateMyCommentReply(USER_ID, reply.id, input);
 
-    expect(result).toEqual({ message: 'Comment reply updated successfully', reply });
-    expect(commentsServiceMock.updateReply).toHaveBeenCalledWith('user-id-1', reply.id, input);
+    expect(result).toEqual({ message: COMMENT_MESSAGES.REPLY_UPDATED, reply });
+    expect(commentsServiceMock.updateReply).toHaveBeenCalledWith(USER_ID, reply.id, input);
   });
 
   it('removeMyCommentReply returns action payload', async () => {
     const reply = buildCommentReply({ active: false });
     commentsServiceMock.removeReply.mockResolvedValue(reply);
 
-    const result = await resolver.removeMyCommentReply('user-id-1', reply.id);
+    const result = await resolver.removeMyCommentReply(USER_ID, reply.id);
 
-    expect(result).toEqual({ message: 'Comment reply removed successfully', reply });
-    expect(commentsServiceMock.removeReply).toHaveBeenCalledWith('user-id-1', reply.id);
+    expect(result).toEqual({ message: COMMENT_MESSAGES.REPLY_REMOVED, reply });
+    expect(commentsServiceMock.removeReply).toHaveBeenCalledWith(USER_ID, reply.id);
   });
 
   it('propagates service errors', async () => {
@@ -130,7 +133,60 @@ describe('CommentsResolver', () => {
     commentsServiceMock.create.mockRejectedValue(boom);
 
     await expect(
-      resolver.createMyTaskComment('user-id-1', { taskId: 'task-id-1', content: 'Hi' }),
+      resolver.createMyTaskComment(USER_ID, { taskId: TASK_ID, content: 'Hi' }),
     ).rejects.toBe(boom);
+  });
+
+  describe('schema', () => {
+    let schema: GraphQLSchema;
+
+    beforeAll(async () => {
+      schema = await buildResolverSchema([CommentsResolver]);
+    });
+
+    const argsOf = (field: GraphQLField<unknown, unknown>) =>
+      Object.fromEntries(field.args.map((arg) => [arg.name, arg.type.toString()]));
+
+    it.each([
+      [
+        'myTaskComments',
+        'PaginatedCommentType!',
+        { taskId: 'String!', pagination: 'PaginationArgsInput' },
+      ],
+      [
+        'myCommentReplies',
+        'PaginatedCommentReplyType!',
+        { commentId: 'String!', pagination: 'PaginationArgsInput' },
+      ],
+    ])('exposes the %s query returning %s', (name, returnType, args) => {
+      const field = schema.getQueryType()?.getFields()[name];
+
+      expect(field).toBeDefined();
+      expect(field!.type.toString()).toBe(returnType);
+      expect(argsOf(field!)).toEqual(args);
+    });
+
+    it.each([
+      ['createMyTaskComment', 'CommentActionType!', { input: 'CreateCommentInput!' }],
+      [
+        'updateMyTaskComment',
+        'CommentActionType!',
+        { id: 'String!', input: 'UpdateCommentInput!' },
+      ],
+      ['removeMyTaskComment', 'CommentActionType!', { id: 'String!' }],
+      ['createMyCommentReply', 'CommentReplyActionType!', { input: 'CreateCommentReplyInput!' }],
+      [
+        'updateMyCommentReply',
+        'CommentReplyActionType!',
+        { id: 'String!', input: 'UpdateCommentReplyInput!' },
+      ],
+      ['removeMyCommentReply', 'CommentReplyActionType!', { id: 'String!' }],
+    ])('exposes the %s mutation returning %s', (name, returnType, args) => {
+      const field = schema.getMutationType()?.getFields()[name];
+
+      expect(field).toBeDefined();
+      expect(field!.type.toString()).toBe(returnType);
+      expect(argsOf(field!)).toEqual(args);
+    });
   });
 });

@@ -1,10 +1,13 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { GraphQLField, GraphQLSchema } from 'graphql';
 
 import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { PolicyGuard } from '@/authorization/guards/policy.guard';
 import { StatusesResolver } from '@/statuses/statuses.resolver';
 import { StatusesService } from '@/statuses/statuses.service';
+import { STATUS_MESSAGES } from '@/statuses/constants/statuses-messages.constants';
+import { buildResolverSchema } from '@/common/testing/common/factories/gql-schema.factory';
 import { buildStatus } from '@/common/testing/statuses/factories/statuses.factory';
 import { createPaginationMetaMock } from '@/common/testing/common/mocks/pagination.mock';
 import { createStatusesServiceMock } from '@/common/testing/statuses/mocks/statuses-service.mock';
@@ -74,7 +77,7 @@ describe('StatusesResolver', () => {
     });
 
     expect(result).toEqual({
-      message: `Status ${status.name} color updated successfully`,
+      message: STATUS_MESSAGES.COLOR_UPDATED(status.name),
       status,
     });
     expect(statusesServiceMock.updateColor).toHaveBeenCalledWith(WORKSPACE_ID, USER_ID, status.id, {
@@ -89,7 +92,7 @@ describe('StatusesResolver', () => {
     const result = await resolver.remove(USER_ID, WORKSPACE_ID, status.id);
 
     expect(result).toEqual({
-      message: `Status ${status.name} removed successfully`,
+      message: STATUS_MESSAGES.REMOVED(status.name),
       status,
     });
     expect(statusesServiceMock.remove).toHaveBeenCalledWith(WORKSPACE_ID, USER_ID, status.id);
@@ -102,5 +105,42 @@ describe('StatusesResolver', () => {
     await expect(
       resolver.updateColor(USER_ID, WORKSPACE_ID, 'status-id-1', { color: '#ef4444' }),
     ).rejects.toBe(boom);
+  });
+
+  describe('schema', () => {
+    let schema: GraphQLSchema;
+
+    beforeAll(async () => {
+      schema = await buildResolverSchema([StatusesResolver]);
+    });
+
+    const argsOf = (field: GraphQLField<unknown, unknown>) =>
+      Object.fromEntries(field.args.map((arg) => [arg.name, arg.type.toString()]));
+
+    it.each([
+      [
+        'statuses',
+        'PaginatedStatusesType!',
+        { workspaceId: 'ID!', pagination: 'PaginationArgsInput', search: 'String' },
+      ],
+      ['status', 'StatusType!', { workspaceId: 'ID!', id: 'ID!' }],
+    ])('exposes the %s query returning %s', (name, returnType, args) => {
+      const field = schema.getQueryType()?.getFields()[name];
+
+      expect(field).toBeDefined();
+      expect(field!.type.toString()).toBe(returnType);
+      expect(argsOf(field!)).toEqual(args);
+    });
+
+    it.each([
+      ['updateStatusColor', { workspaceId: 'ID!', id: 'ID!', input: 'UpdateStatusColorInput!' }],
+      ['removeStatus', { workspaceId: 'ID!', id: 'ID!' }],
+    ])('exposes the %s mutation returning StatusActionType', (name, args) => {
+      const field = schema.getMutationType()?.getFields()[name];
+
+      expect(field).toBeDefined();
+      expect(field!.type.toString()).toBe('StatusActionType!');
+      expect(argsOf(field!)).toEqual(args);
+    });
   });
 });
