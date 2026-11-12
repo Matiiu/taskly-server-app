@@ -3,8 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersRepository } from '@/users/users.repository';
 import { PrismaService } from '@/prisma/prisma.service';
 import { OMIT_PASSWORD } from '@/users/constants/users.constants';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
-import { buildSafeUser } from '@/common/testing/factories/users.factory';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
+import { buildSafeUser } from '@/common/testing/users/factories/users.factory';
 
 const USER_ID = 'user-id-1';
 const USER_CODE = '@johndoe';

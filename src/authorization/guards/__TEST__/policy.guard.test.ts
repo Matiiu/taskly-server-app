@@ -5,7 +5,10 @@ import { AuthenticatedUserNotFoundException } from '@/common/exceptions/authenti
 import { PolicyGuard } from '@/authorization/guards/policy.guard';
 import { AuthorizationService } from '@/authorization/authorization.service';
 import { TASK_POLICIES } from '@/authorization/policies/task.policies';
-import { buildGuardContext, mockGqlContext } from '@/common/testing/factories/gql-guard.factory';
+import {
+  buildGuardContext,
+  mockGqlContext,
+} from '@/common/testing/common/factories/gql-guard.factory';
 
 describe('PolicyGuard', () => {
   let guard: PolicyGuard;

@@ -5,9 +5,9 @@ import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { PolicyGuard } from '@/authorization/guards/policy.guard';
 import { StatusesResolver } from '@/statuses/statuses.resolver';
 import { StatusesService } from '@/statuses/statuses.service';
-import { buildStatus } from '@/common/testing/factories/domain.factory';
-import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';
-import { createStatusesServiceMock } from '@/common/testing/mocks/statuses-service.mock';
+import { buildStatus } from '@/common/testing/statuses/factories/statuses.factory';
+import { createPaginationMetaMock } from '@/common/testing/common/mocks/pagination.mock';
+import { createStatusesServiceMock } from '@/common/testing/statuses/mocks/statuses-service.mock';
 
 const WORKSPACE_ID = 'workspace-id-1';
 const USER_ID = 'user-id-1';

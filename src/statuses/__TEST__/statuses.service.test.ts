@@ -5,9 +5,9 @@ import { Prisma } from 'generated/prisma/client';
 import { StatusesService } from '@/statuses/statuses.service';
 import { StatusesRepository } from '@/statuses/statuses.repository';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
-import { createAppEventEmitterMock } from '@/common/testing/mocks/app-event-emitter.mock';
-import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';
-import { buildStatus } from '@/common/testing/factories/domain.factory';
+import { createAppEventEmitterMock } from '@/common/testing/common/mocks/app-event-emitter.mock';
+import { createPaginationMetaMock } from '@/common/testing/common/mocks/pagination.mock';
+import { buildStatus } from '@/common/testing/statuses/factories/statuses.factory';
 import { COLORS, DEFAULT_STATUSES } from '@/common/constants/colors.contats';
 
 const WORKSPACE_ID = 'workspace-id-1';

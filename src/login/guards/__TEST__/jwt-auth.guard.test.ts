@@ -4,9 +4,9 @@ import { Test } from '@nestjs/testing';
 import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { TokenService } from '@/login/token.service';
 import type { JwtPayload } from '@/login/types/login.type';
-import { buildContext, buildReq } from '@/common/testing/factories/jwt-auth.factory';
-import { createJwtValidPayloadMock } from '@/common/testing/mocks/jwt-auth.mock';
-import { buildSafeUser } from '@/common/testing/factories/users.factory';
+import { buildContext, buildReq } from '@/common/testing/login/factories/jwt-auth.factory';
+import { createJwtValidPayloadMock } from '@/common/testing/login/mocks/jwt-auth.mock';
+import { buildSafeUser } from '@/common/testing/users/factories/users.factory';
 
 // Token validation itself is covered in token.service.test.ts;
 // these tests only cover reading the header and attaching the session and user.

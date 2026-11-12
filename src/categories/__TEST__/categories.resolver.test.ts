@@ -1,13 +1,15 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { GraphQLSchema } from 'graphql';
 
 import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { PolicyGuard } from '@/authorization/guards/policy.guard';
 import { CategoriesResolver } from '@/categories/categories.resolver';
 import { CategoriesService } from '@/categories/categories.service';
-import { buildCategory } from '@/common/testing/factories/domain.factory';
-import { createCategoriesServiceMock } from '@/common/testing/mocks/categories-service.mock';
-import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';
+import { buildCategory } from '@/common/testing/categories/factories/categories.factory';
+import { createCategoriesServiceMock } from '@/common/testing/categories/mocks/categories-service.mock';
+import { buildResolverSchema } from '@/common/testing/common/factories/gql-schema.factory';
+import { createPaginationMetaMock } from '@/common/testing/common/mocks/pagination.mock';
 
 const WORKSPACE_ID = 'workspace-id-1';
 const USER_ID = 'user-id-1';
@@ -105,6 +107,45 @@ describe('CategoriesResolver', () => {
         category,
       });
       expect(categoriesServiceMock.remove).toHaveBeenCalledWith(WORKSPACE_ID, USER_ID, category.id);
+    });
+  });
+
+  describe('schema', () => {
+    let schema: GraphQLSchema;
+
+    beforeAll(async () => {
+      schema = await buildResolverSchema([CategoriesResolver]);
+    });
+
+    const argsOf = (field: { args: readonly { name: string; type: { toString(): string } }[] }) =>
+      Object.fromEntries(field.args.map((arg) => [arg.name, arg.type.toString()]));
+
+    it('exposes the categories query with workspaceId required and optional pagination/search', () => {
+      const field = schema.getQueryType()?.getFields()['categories'];
+
+      expect(field).toBeDefined();
+      const args = argsOf(field!);
+      expect(args.workspaceId).toBe('ID!');
+      expect(args.pagination).not.toMatch(/!$/);
+      expect(args.search).not.toMatch(/!$/);
+    });
+
+    it('exposes the updateCategoryColor mutation returning CategoryActionType', () => {
+      const field = schema.getMutationType()?.getFields()['updateCategoryColor'];
+
+      expect(field).toBeDefined();
+      expect(Object.keys(argsOf(field!))).toEqual(
+        expect.arrayContaining(['workspaceId', 'id', 'input']),
+      );
+      expect(field!.type.toString()).toContain('CategoryActionType');
+    });
+
+    it('exposes the removeCategory mutation returning CategoryActionType', () => {
+      const field = schema.getMutationType()?.getFields()['removeCategory'];
+
+      expect(field).toBeDefined();
+      expect(Object.keys(argsOf(field!))).toEqual(expect.arrayContaining(['workspaceId', 'id']));
+      expect(field!.type.toString()).toContain('CategoryActionType');
     });
   });
 });

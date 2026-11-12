@@ -4,9 +4,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '@/login/guards/jwt-auth.guard';
 import { CommentsResolver } from '@/comments/comments.resolver';
 import { CommentsService } from '@/comments/comments.service';
-import { buildComment, buildCommentReply } from '@/common/testing/factories/domain.factory';
-import { createCommentsServiceMock } from '@/common/testing/mocks/comments-service.mock';
-import { createPaginationMetaMock } from '@/common/testing/mocks/pagination.mock';
+import {
+  buildComment,
+  buildCommentReply,
+} from '@/common/testing/comments/factories/comments.factory';
+import { createCommentsServiceMock } from '@/common/testing/comments/mocks/comments-service.mock';
+import { createPaginationMetaMock } from '@/common/testing/common/mocks/pagination.mock';
 
 describe('CommentsResolver', () => {
   let resolver: CommentsResolver;

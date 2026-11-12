@@ -7,8 +7,8 @@ import type { Db } from '@/prisma/prisma.types';
 import { UsersService } from '@/users/users.service';
 import { UsersRepository } from '@/users/users.repository';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
-import { createAppEventEmitterMock } from '@/common/testing/mocks/app-event-emitter.mock';
-import { buildSafeUser, buildUserType } from '@/common/testing/factories/users.factory';
+import { createAppEventEmitterMock } from '@/common/testing/common/mocks/app-event-emitter.mock';
+import { buildSafeUser, buildUserType } from '@/common/testing/users/factories/users.factory';
 import { toUserSnapshot } from '@/users/utils/user-snapshot.util';
 import { LIMIT_DEFAULT, PAGE_DEFAULT } from '@/common/constants/pagination.constants';
 

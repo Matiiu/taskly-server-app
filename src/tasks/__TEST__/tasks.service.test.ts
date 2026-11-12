@@ -6,7 +6,7 @@ import { TaskRelation } from '@/tasks/enums/task-relation.enums';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import { StatusesService } from '@/statuses/statuses.service';
 import { CategoriesService } from '@/categories/categories.service';
-import { createAppEventEmitterMock } from '@/common/testing/mocks/app-event-emitter.mock';
+import { createAppEventEmitterMock } from '@/common/testing/common/mocks/app-event-emitter.mock';
 import { LIMIT_DEFAULT, PAGE_DEFAULT } from '@/common/constants/pagination.constants';
 
 const USER_ID = 'user-id-1';
