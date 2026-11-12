@@ -125,7 +125,8 @@ Shared code lives in `src/common/` (constants, dto, entities, enums, exceptions,
 
 ## Testing
 
-- Every layer gets tests in `src/<feature>/__TEST__/<file>.test.ts` (Jest + ts-jest).
+- **Only write tests when the user asks for them** (or says yes when you offer). Otherwise suggest which tests to add.
+- Tests for each layer go in `src/<feature>/__TEST__/<file>.test.ts` (Jest + ts-jest).
 - Use shared mocks and factories from `src/common/testing/` (`prisma.mock.ts`, `app-event-emitter.mock.ts`, `*-service.mock.ts`, `domain.factory.ts`, `gql-guard.factory.ts`). A mock used by one test file may live in that file; once a second file needs it, move it to `src/common/testing/`.
 - Repository tests mock Prisma. Service tests mock repositories and the event emitter. Resolver tests mock the service.
 - Coverage threshold is 80% (resolvers have a lower per-glob threshold in `jest.config.ts`).
@@ -147,8 +148,10 @@ Some older mutations return only the `message`. When you touch one, make it retu
 
 ## Git workflow
 
-- **Never work, commit or push on `main` or `develop`.** Before changing code, create a branch from the current base named after the task: `<type>/<short-kebab-description>` (e.g. `feature/task-labels`, `fix/register-error`, `refactor/users-repository`, `test/tasks-module`). `<type>` is one of `feature`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `hotfix`.
-- If you're already on a branch for this task, keep working there.
+- **Only create a branch when the user asks for one.** Otherwise work on the current branch. If it's `main` or `develop`, warn the user and suggest a name, but don't create it.
+- **Only commit when the user asks** (or says yes when you offer). Otherwise suggest the commits: file groups and titles.
+- **Never commit or push on `main` or `develop`.**
+- Branch names: `<type>/<short-kebab-description>` (e.g. `feature/task-labels`, `fix/register-error`, `refactor/users-repository`, `test/tasks-module`). `<type>` is one of `feature`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `hotfix`.
 - One commit per logical change. Work that belongs to the task goes in its own commit(s); an unrelated fix found along the way goes in a separate commit.
 - After committing, always push to the current branch (`git push -u origin HEAD`). Never force-push and never use `--no-verify`.
 
@@ -195,7 +198,7 @@ This project has three agents in `.claude/agents/`. Start the boss with `claude 
 
 | Agent    | Role                                                               |
 | -------- | ------------------------------------------------------------------ |
-| `server` | The boss. Plans, creates the branch, writes the code, delegates.   |
+| `server` | The boss. Plans, writes the code, suggests branches/tests/commits. |
 | `test`   | Writes and fixes unit tests until coverage reaches the thresholds. |
 | `commit` | Splits changes into conventional commits and pushes the branch.    |
 
@@ -203,4 +206,5 @@ Rules for every agent:
 
 1. **Plan before acting.** Propose a short plan: the affected modules, layers and files (and migrations, branch or commits when relevant). Wait for the user's "yes" before changing anything.
 2. **Delegated work skips approval.** When the task message starts with `[server]`, `server` already got the user's approval: don't ask, just do it.
-3. All agents follow every rule in this file.
+3. **Branches, tests and commits need the user's explicit yes.** No agent creates a branch, writes tests or commits on its own. Suggest them; do them only when the user asks or approves. A yes to the code plan doesn't count unless the user asked for them.
+4. All agents follow every rule in this file.
