@@ -11,12 +11,16 @@ import { WorkspaceService } from '@/workspace/workspace.service';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import * as hashUtil from '@/common/utils/hash.util';
 import { AuthProvider, DocumentType } from 'generated/prisma/enums';
-import { buildSafeUser, buildUser, buildUserType } from '@/common/testing/factories/users.factory';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
-import { createUsersServiceMock } from '@/common/testing/mocks/users-service.mock';
-import { createLoginRepositoryMock } from '@/common/testing/mocks/login-repository.mock';
-import { createWorkspaceServiceMock } from '@/common/testing/mocks/workspace-service.mock';
-import { createAppEventEmitterMock } from '@/common/testing/mocks/app-event-emitter.mock';
+import {
+  buildSafeUser,
+  buildUser,
+  buildUserType,
+} from '@/common/testing/users/factories/users.factory';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
+import { createUsersServiceMock } from '@/common/testing/users/mocks/users-service.mock';
+import { createLoginRepositoryMock } from '@/common/testing/login/mocks/login-repository.mock';
+import { createWorkspaceServiceMock } from '@/common/testing/workspace/mocks/workspace-service.mock';
+import { createAppEventEmitterMock } from '@/common/testing/common/mocks/app-event-emitter.mock';
 
 const HASHED_PASSWORD = 'hashed-password';
 const SUGGESTIONS_COUNT = 6;

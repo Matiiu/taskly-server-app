@@ -3,7 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { createPrismaMock } from '@/common/testing/mocks/prisma.mock';
+import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
 import { AuditAction, AuditEntity } from 'generated/prisma/enums';
 
 let prisma: ReturnType<typeof createPrismaMock>;
