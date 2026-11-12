@@ -1,0 +1,122 @@
+# Name shown in the GitHub "Actions" tab and in the PR checks list.
+name: CI
+
+# Events that start the workflow.
+on:
+    pull_request:
+        branches: [main, develop]
+    push:
+        branches: [main, develop]
+
+# If you push again while a run is still going on the same branch/PR, cancel the old run.
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+# The token this workflow gets can only read the repo (least privilege).
+permissions:
+    contents: read
+
+env:
+    HUSKY: 0 # "prepare" runs on install; this turns husky off in CI (no hooks needed there)
+  # Points at the Postgres service below. It also satisfies env('DATABASE_URL') in
+  # prisma.config.ts, which throws if the variable is missing. CI has no .env.local,
+  # so dotenv loads nothing and Prisma uses this value.
+    DATABASE_URL: postgresql://taskly:taskly@localhost:5432/taskly_ci
+
+jobs:
+    # ---------- Job 1: commit messages ----------
+    commits: # Job ID (internal)
+        name: Commit messages
+        if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                fetch-depth: 0 # full history; the default (1) only has the last commit
+            - uses: pnpm/action-setup@v6 # installs pnpm; reads "packageManager" (pnpm@11.9.0)
+            - uses: actions/setup-node@v6 # installs Node
+              with:
+                node-version-file: .nvmrc # 24.9.0, same as your machine
+                cache: pnpm # caches the pnpm store between runs (pnpm must be installed first)
+            - run: pnpm install --frozen-lockfile  # exact versions from pnpm-lock.yaml; fails if lock and package.json differ
+            - name: Lint commit messages
+              # ">-" joins the next lines into one command
+              run: >-
+                pnpm exec commitlint
+                --from ${{ github.event.pull_request.base.sha }}
+                --to ${{ github.event.pull_request.head.sha }}
+                --verbose
+            # --from/--to: check only the commits this PR adds (target branch → last PR commit)
+        # --verbose: also print the commits that passed
+
+        # ---------- Job 2: code quality (runs in parallel with job 1) ----------
+    checks:
+        name: Format, Prisma, lint, build and tests
+        runs-on: ubuntu-latest
+
+        # Docker containers started next to the job and removed at the end
+        services:
+            postgres:
+                image: postgres:16-alpine # same image as your docker-compose.yml
+                env: # user/db created when the container starts
+                    POSTGRES_USER: taskly
+                    POSTGRES_PASSWORD: taskly
+                    POSTGRES_DB: taskly_ci
+                ports:
+                    - 5432:5432 # VM port : container port, so localhost:5432 works
+                # Don't start the steps until Postgres accepts connections.
+                options: >-
+                    --health-cmd "pg_isready -U taskly"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+
+        steps:
+            - uses: actions/checkout@v6 # the last commit is enough here
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v6
+              with:
+                node-version-file: .nvmrc
+                cache: pnpm
+            - run: pnpm install --frozen-lockfile
+        
+            # Fails if any .ts file isn't formatted per .prettierrc.
+            - name: Check formatting
+              run: pnpm format:check
+            
+            # Errors in schema.prisma (syntax, relations, types).
+            - name: Validate Prisma schema
+              run: pnpm prisma validate
+            # Fails if schema.prisma isn't formatted (you forgot "prisma format").
+            - name: Check Prisma schema formatting
+              run: pnpm prisma format --check
+            # Creates /generated/prisma (it's gitignored). Lint, build and tests import from it.
+            - name: Generate Prisma client
+              run: pnpm prisma generate
+            
+            # Your ESLint uses type-checked rules, so it needs the generated client first.
+            - name: Lint
+              run: pnpm lint:check
+            # "nest build" runs the TypeScript compiler: any type error fails here.
+            - name: Build
+              run: pnpm build
+            
+            # Applies every migration in prisma/migrations to the empty CI database.
+            # Fails if a migration is broken.
+            - name: Apply migrations to an empty database
+              run: pnpm prisma migrate deploy
+            
+            # Compares the migrated DB (from) with schema.prisma (to).
+            # --exit-code: exits with 2 if they differ, so the step fails.
+            # This catches "I changed schema.prisma but forgot prisma migrate dev".
+            - name: Check the schema has no missing migration
+              run: >-
+                pnpm prisma migrate diff
+                --from-config-datasource
+                --to-schema prisma/schema.prisma
+                --exit-code
+            
+            # Unit tests; also fails if coverage drops under the jest.config.ts thresholds.
+            - name: Unit tests with coverage
+              run: pnpm test:cov

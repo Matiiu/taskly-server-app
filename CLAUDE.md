@@ -158,36 +158,41 @@ Some older mutations return only the `message`. When you touch one, make it retu
 
 ## Commit messages
 
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/). commitlint (`commitlint.config.mjs`) checks every message in the `commit-msg` hook and again in CI, so a message that breaks these rules is rejected.
+
 Format (all in English):
 
 ```text
-<emoji> <type>(<optional scope>): <short summary>
+<type>(<optional scope>): <short summary>
 
 <Body: what changed and why, wrapped at 72 chars.>
 ```
 
-- The title is **72 characters max, emoji included**. Imperative mood, lowercase, no period.
+- The title is **72 characters max**. Imperative mood, lowercase, no period.
 - The scope is the affected feature/module when there is one (`login`, `tasks`, `categories`, ...).
 - The body is mandatory and describes the changes made.
+- Breaking changes add `!` after the type/scope (`feat(login)!: ...`) and a `BREAKING CHANGE:` footer.
 
-| Emoji | Type       | Use for                                                 |
-| ----- | ---------- | ------------------------------------------------------- |
-| ✨    | `feat`     | A new feature                                           |
-| 🐛    | `fix`      | A bug fix                                               |
-| 📝    | `docs`     | Documentation only changes                              |
-| 💄    | `style`    | Formatting, missing semicolons, etc. (no logic change)  |
-| ♻️    | `refactor` | Code change that neither fixes a bug nor adds a feature |
-| ⚡    | `perf`     | Code change that improves performance                   |
-| 🧪    | `test`     | Adding or correcting tests                              |
-| 🔧    | `chore`    | Maintenance, build process or auxiliary tools           |
-| 🚀    | `ci`       | CI/CD configuration changes                             |
-| 🔥    | `remove`   | Removing code or files                                  |
-| 🚑    | `hotfix`   | Critical hotfix                                         |
+| Type       | Use for                                                     |
+| ---------- | ----------------------------------------------------------- |
+| `feat`     | A new feature                                               |
+| `fix`      | A bug fix (hotfixes too)                                    |
+| `docs`     | Documentation only changes                                  |
+| `style`    | Formatting, missing semicolons, etc. (no logic change)      |
+| `refactor` | Code change that neither fixes a bug nor adds a feature     |
+| `perf`     | Code change that improves performance                       |
+| `test`     | Adding or correcting tests                                  |
+| `build`    | Build system or dependencies (pnpm, Nest build, Docker)     |
+| `ci`       | CI/CD configuration (GitHub Actions)                        |
+| `chore`    | Maintenance that doesn't fit above (tooling, config, rules) |
+| `revert`   | Reverting a previous commit                                 |
+
+Removing code or files is a `refactor` (or `chore` when it isn't source code).
 
 Example:
 
 ```text
-🐛 fix(login): fix register error
+fix(login): fix register error
 
 Register failed when the document already existed because the unique
 violation was not caught. LoginService now maps it to a ConflictException.
