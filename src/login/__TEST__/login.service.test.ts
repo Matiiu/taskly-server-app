@@ -7,9 +7,14 @@ import { CredentialsService } from '@/login/credentials.service';
 import { TokenService } from '@/login/token.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UsersService } from '@/users/users.service';
+import { EVENTS } from '@/common/constants/events.constants';
 import { AppEventEmitterService } from '@/common/event-emitter.service';
 import * as hashUtil from '@/common/utils/hash.util';
-import { buildSafeUser, buildUser } from '@/common/testing/users/factories/users.factory';
+import {
+  buildSafeUser,
+  buildUser,
+  buildUserType,
+} from '@/common/testing/users/factories/users.factory';
 import { createPrismaMock } from '@/common/testing/prisma/mocks/prisma.mock';
 import { createUsersServiceMock } from '@/common/testing/users/mocks/users-service.mock';
 import { createCredentialsServiceMock } from '@/common/testing/login/mocks/credentials-service.mock';
@@ -17,6 +22,7 @@ import { createTokenServiceMock } from '@/common/testing/login/mocks/token-servi
 import { createLoginRepositoryMock } from '@/common/testing/login/mocks/login-repository.mock';
 import { createAppEventEmitterMock } from '@/common/testing/common/mocks/app-event-emitter.mock';
 import { MOCK_TOKEN } from '@/common/testing/login/constants/login.constants';
+import { toUserMinimalSnapshot } from '@/users/utils/user-snapshot.util';
 import { USER_DEACTIVATED_MESSAGE } from '@/users/utils/user-status.util';
 
 describe('LoginService', () => {
@@ -131,58 +137,194 @@ describe('LoginService', () => {
     });
   });
 
-  describe('recoverPassword', () => {
-    const recoverInput = { email: 'john@example.com', password: 'NewPassword123!' };
+  describe('requestPasswordReset', () => {
+    const input = { email: 'john@example.com' };
 
-    it('should recover password successfully', async () => {
+    it('should do nothing when the email is unknown', async () => {
+      loginRepoMock.findByEmail.mockResolvedValue(null);
+
+      await expect(service.requestPasswordReset(input)).resolves.toBeUndefined();
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(appEventEmitterMock.emit).not.toHaveBeenCalled();
+      expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing when the user is inactive', async () => {
+      loginRepoMock.findByEmail.mockResolvedValue(buildUser({ active: false }));
+
+      await expect(service.requestPasswordReset(input)).resolves.toBeUndefined();
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(appEventEmitterMock.emit).not.toHaveBeenCalled();
+      expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+    });
+
+    describe('when the user is active', () => {
+      const NOW = new Date('2026-11-18T12:00:00.000Z');
       const user = buildUser();
-      loginRepoMock.findByEmail.mockResolvedValue(user);
-      jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue('new-hashed');
-      // new password is different from current
-      jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(false);
 
-      const result = await service.recoverPassword(recoverInput);
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(NOW);
+        loginRepoMock.findByEmail.mockResolvedValue(user);
+      });
 
-      expect(result).toBe(MOCK_TOKEN);
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('should invalidate old tokens, then create the new one in one transaction', async () => {
+        await service.requestPasswordReset(input);
+
+        expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+        expect(loginRepoMock.invalidateResetTokens).toHaveBeenCalledWith(user.id, prismaMock);
+        expect(loginRepoMock.createResetToken).toHaveBeenCalledWith(
+          expect.objectContaining({ userId: user.id }),
+          prismaMock,
+        );
+        expect(loginRepoMock.invalidateResetTokens.mock.invocationCallOrder[0]).toBeLessThan(
+          loginRepoMock.createResetToken.mock.invocationCallOrder[0],
+        );
+      });
+
+      it('should store only the hash of the token it emits', async () => {
+        await service.requestPasswordReset(input);
+
+        const [{ tokenHash }] = loginRepoMock.createResetToken.mock.calls[0] as [
+          { tokenHash: string },
+        ];
+        const [, { token }] = appEventEmitterMock.emit.mock.calls[0] as [string, { token: string }];
+
+        expect(tokenHash).not.toBe(token);
+        expect(tokenHash).toBe(hashUtil.hashToken(token));
+      });
+
+      it('should expire the token 30 minutes from now', async () => {
+        await service.requestPasswordReset(input);
+
+        const [{ expiresAt }] = loginRepoMock.createResetToken.mock.calls[0] as [
+          { expiresAt: Date },
+        ];
+
+        expect(expiresAt).toEqual(new Date(NOW.getTime() + 30 * 60 * 1000));
+      });
+
+      it('should emit the reset event with the raw token and audit the request', async () => {
+        await service.requestPasswordReset(input);
+
+        expect(appEventEmitterMock.emit).toHaveBeenCalledWith(EVENTS.PASSWORD_RESET_REQUESTED, {
+          email: user.email,
+          name: user.name,
+          token: expect.stringMatching(/^[0-9a-f]{64}$/) as string,
+        });
+        expect(appEventEmitterMock.emitAuditLog).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'REQUEST_PASSWORD_RESET',
+            userId: user.id,
+            entityId: user.id,
+            entity: 'User',
+          }),
+        );
+      });
+
+      it('should not emit anything when the transaction fails', async () => {
+        loginRepoMock.createResetToken.mockRejectedValue(new Error('db down'));
+
+        await expect(service.requestPasswordReset(input)).rejects.toThrow('db down');
+
+        expect(appEventEmitterMock.emit).not.toHaveBeenCalled();
+        expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('resetPassword', () => {
+    const RAW_TOKEN = 'raw-reset-token';
+    const NEW_PASSWORD = 'NewPassword123!';
+    const NEW_HASH = 'new-hashed';
+    const TOKEN_ID = 'reset-token-id-1';
+    const input = { token: RAW_TOKEN, newPassword: NEW_PASSWORD };
+    const INVALID_LINK = new BadRequestException('Invalid or expired reset link');
+
+    it('should throw BadRequestException when there is no active token', async () => {
+      loginRepoMock.findActiveResetToken.mockResolvedValue(null);
+
+      await expect(service.resetPassword(input)).rejects.toThrow(INVALID_LINK);
+
+      expect(loginRepoMock.findActiveResetToken).toHaveBeenCalledWith(
+        hashUtil.hashToken(RAW_TOKEN),
+      );
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+    });
+
+    it('should throw the same BadRequestException when the user is inactive', async () => {
+      loginRepoMock.findActiveResetToken.mockResolvedValue({
+        id: TOKEN_ID,
+        user: buildSafeUser({ active: false }),
+      });
+
+      await expect(service.resetPassword(input)).rejects.toThrow(INVALID_LINK);
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(loginRepoMock.updatePassword).not.toHaveBeenCalled();
+    });
+
+    it('should throw and save nothing when another request used the token first', async () => {
+      loginRepoMock.findActiveResetToken.mockResolvedValue({
+        id: TOKEN_ID,
+        user: buildSafeUser(),
+      });
+      loginRepoMock.markResetTokenUsed.mockResolvedValue(false);
+      jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue(NEW_HASH);
+
+      await expect(service.resetPassword(input)).rejects.toThrow(INVALID_LINK);
+
+      expect(loginRepoMock.updatePassword).not.toHaveBeenCalled();
+      expect(tokenServiceMock.revokeAllSessions).not.toHaveBeenCalled();
+      expect(tokenServiceMock.sign).not.toHaveBeenCalled();
+      expect(appEventEmitterMock.emitAuditLog).not.toHaveBeenCalled();
+    });
+
+    it('should consume the token, revoke sessions, save the password and sign a new token', async () => {
+      const user = buildSafeUser();
+      const updatedUser = buildSafeUser({ updatedAt: new Date('2026-11-18T12:00:00.000Z') });
+      const mappedUser = buildUserType(updatedUser);
+      loginRepoMock.findActiveResetToken.mockResolvedValue({ id: TOKEN_ID, user });
+      loginRepoMock.markResetTokenUsed.mockResolvedValue(true);
+      loginRepoMock.updatePassword.mockResolvedValue(updatedUser);
+      usersServiceMock.toUserType.mockReturnValue(mappedUser);
+      jest.spyOn(hashUtil, 'hashPassword').mockResolvedValue(NEW_HASH);
+
+      const result = await service.resetPassword(input);
+
+      expect(result).toEqual({ user: mappedUser, token: MOCK_TOKEN });
+      expect(usersServiceMock.toUserType).toHaveBeenCalledWith(updatedUser);
+      expect(hashUtil.hashPassword).toHaveBeenCalledWith(NEW_PASSWORD);
       expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
-      expect(loginRepoMock.updatePassword).toHaveBeenCalledWith(user.id, 'new-hashed', prismaMock);
+      expect(loginRepoMock.markResetTokenUsed).toHaveBeenCalledWith(TOKEN_ID, prismaMock);
       expect(tokenServiceMock.revokeAllSessions).toHaveBeenCalledWith(user.id, prismaMock);
+      expect(loginRepoMock.updatePassword).toHaveBeenCalledWith(user.id, NEW_HASH, prismaMock);
+      expect(loginRepoMock.markResetTokenUsed.mock.invocationCallOrder[0]).toBeLessThan(
+        tokenServiceMock.revokeAllSessions.mock.invocationCallOrder[0],
+      );
+      expect(tokenServiceMock.revokeAllSessions.mock.invocationCallOrder[0]).toBeLessThan(
+        loginRepoMock.updatePassword.mock.invocationCallOrder[0],
+      );
       expect(tokenServiceMock.sign).toHaveBeenCalledWith({
         userId: user.id,
         userCode: user.code,
       });
       expect(appEventEmitterMock.emitAuditLog).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'RECOVER_PASSWORD', userId: user.id }),
+        expect.objectContaining({
+          action: 'RESET_PASSWORD',
+          userId: user.id,
+          entityId: user.id,
+          entity: 'User',
+          before: toUserMinimalSnapshot(user),
+          after: toUserMinimalSnapshot(updatedUser),
+        }),
       );
-    });
-
-    it('should throw BadRequestException when user is not found', async () => {
-      loginRepoMock.findByEmail.mockResolvedValue(null);
-
-      await expect(service.recoverPassword(recoverInput)).rejects.toThrow(
-        new BadRequestException('User not found'),
-      );
-    });
-
-    it('should throw ForbiddenException when the account is deactivated', async () => {
-      loginRepoMock.findByEmail.mockResolvedValue(buildUser({ active: false }));
-
-      await expect(service.recoverPassword(recoverInput)).rejects.toThrow(
-        new ForbiddenException(USER_DEACTIVATED_MESSAGE),
-      );
-      expect(prismaMock.$transaction).not.toHaveBeenCalled();
-    });
-
-    it('should throw BadRequestException when new password equals the current password', async () => {
-      loginRepoMock.findByEmail.mockResolvedValue(buildUser());
-      // same password
-      jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
-
-      await expect(service.recoverPassword(recoverInput)).rejects.toThrow(
-        new BadRequestException('New password must be different from the current password'),
-      );
-      expect(prismaMock.$transaction).not.toHaveBeenCalled();
-      expect(loginRepoMock.updatePassword).not.toHaveBeenCalled();
     });
   });
 

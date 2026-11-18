@@ -1,6 +1,7 @@
 export const createLoginServiceMock = () => ({
   signIn: jest.fn(),
   logout: jest.fn(),
-  recoverPassword: jest.fn(),
+  requestPasswordReset: jest.fn(),
+  resetPassword: jest.fn(),
   changePassword: jest.fn(),
 });
