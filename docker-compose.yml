@@ -12,5 +12,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  # Local SMTP server that catches every email: web inbox at http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: taskly_mailpit
+    restart: unless-stopped
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web inbox
+
 volumes:
   postgres_data:
