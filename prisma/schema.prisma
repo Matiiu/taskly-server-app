@@ -22,7 +22,8 @@ enum AuditAction {
   REGISTER_USER
   LOGIN_USER
   LOGOUT_USER
-  RECOVER_PASSWORD
+  REQUEST_PASSWORD_RESET
+  RESET_PASSWORD
   CHANGE_PASSWORD
   UPDATE_USER
   INACTIVATE_USER
@@ -152,11 +153,12 @@ model User {
   commentReplies       CommentReply[]
   auditLogs            AuditLog[]
   revokedTokens        RevokedToken[]
+  passwordResetTokens  PasswordResetToken[]
   ownedWorkspaces      Workspace[]
-  workspaceMemberships WorkspaceMember[] @relation("WorkspaceMemberships")
-  workspaceInvites     WorkspaceMember[] @relation("WorkspaceInvites")
-  assignedTasks        TaskAssignee[]    @relation("TaskAssignments")
-  tasksAssignedByMe    TaskAssignee[]    @relation("TaskAssignedBy")
+  workspaceMemberships WorkspaceMember[]    @relation("WorkspaceMemberships")
+  workspaceInvites     WorkspaceMember[]    @relation("WorkspaceInvites")
+  assignedTasks        TaskAssignee[]       @relation("TaskAssignments")
+  tasksAssignedByMe    TaskAssignee[]       @relation("TaskAssignedBy")
 
   /// Email and document are unique among accounts that are not released (active or still recoverable).
   /// A document number is unique per document type (the same number can exist under another type).
@@ -244,6 +246,20 @@ model RevokedToken {
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([expiresAt])
+  @@index([userId])
+}
+
+/// Single-use password reset link. Only the SHA-256 hash of the emailed token is stored.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 

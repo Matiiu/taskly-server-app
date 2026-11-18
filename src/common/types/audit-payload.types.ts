@@ -63,7 +63,8 @@ export type AuditChangeMap = {
   // Login actions — minimal info is enough
   LOGIN_USER: { before: null; after: UserMinimalSnapshot };
   LOGOUT_USER: { before: UserMinimalSnapshot; after: null };
-  RECOVER_PASSWORD: { before: UserMinimalSnapshot; after: UserMinimalSnapshot };
+  REQUEST_PASSWORD_RESET: { before: null; after: UserMinimalSnapshot };
+  RESET_PASSWORD: { before: UserMinimalSnapshot; after: UserMinimalSnapshot };
   CHANGE_PASSWORD: { before: UserMinimalSnapshot; after: UserMinimalSnapshot };
 
   // User actions — full snapshot

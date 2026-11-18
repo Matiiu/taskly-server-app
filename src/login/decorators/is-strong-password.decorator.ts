@@ -7,7 +7,7 @@ import {
   PASSWORD_PATTERN,
 } from '@/login/constants/login.constant';
 
-/** The password rules of every input that sets a new password (register, recover, change). */
+/** The password rules of every input that sets a new password (register, reset, change). */
 export const IsStrongPassword = () =>
   applyDecorators(
     IsNotEmpty(),
