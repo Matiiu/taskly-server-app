@@ -5,7 +5,8 @@ import { LoginService } from '@/login/login.service';
 import { RegistrationService } from '@/login/registration.service';
 import { AccountService } from '@/login/account.service';
 import { RegisterInput } from '@/login/dto/register.input';
-import { RecoverPasswordInput } from '@/login/dto/recover-password.input';
+import { RequestPasswordResetInput } from '@/login/dto/request-password-reset.input';
+import { ResetPasswordInput } from '@/login/dto/reset-password.input';
 import { SignInInput } from '@/login/dto/sign-in.input';
 import { SuggestCodesInput } from '@/login/dto/suggest-codes.input';
 import { DeleteAccountInput } from '@/login/dto/delete-account.input';
@@ -24,6 +25,11 @@ const RegisterPayload = MutationPayload('RegisterPayload', { user: UserType });
 const LoginTokenPayload = MutationPayload('LoginTokenPayload', { token: String });
 const DeleteAccountPayload = MutationPayload('DeleteAccountPayload', {});
 const ChangeCodePayload = MutationPayload('ChangeCodePayload', { user: UserType, token: String });
+const RequestPasswordResetPayload = MutationPayload('RequestPasswordResetPayload', {});
+const ResetPasswordPayload = MutationPayload('ResetPasswordPayload', {
+  user: UserType,
+  token: String,
+});
 
 @Resolver()
 export class LoginResolver {
@@ -56,15 +62,28 @@ export class LoginResolver {
     };
   }
 
-  @Mutation(() => LoginTokenPayload, { name: 'recoverPassword' })
-  async recoverPassword(
-    @Args('input') input: RecoverPasswordInput,
-  ): Promise<InstanceType<typeof LoginTokenPayload>> {
-    const token = await this.loginService.recoverPassword(input);
+  @Mutation(() => RequestPasswordResetPayload, { name: 'requestPasswordReset' })
+  async requestPasswordReset(
+    @Args('input') input: RequestPasswordResetInput,
+  ): Promise<InstanceType<typeof RequestPasswordResetPayload>> {
+    await this.loginService.requestPasswordReset(input);
+
+    // Same message whether or not the email exists
+    return {
+      message: 'If an account exists for this email, a password reset link has been sent',
+    };
+  }
+
+  @Mutation(() => ResetPasswordPayload, { name: 'resetPassword' })
+  async resetPassword(
+    @Args('input') input: ResetPasswordInput,
+  ): Promise<InstanceType<typeof ResetPasswordPayload>> {
+    const { user, token } = await this.loginService.resetPassword(input);
 
     return {
+      user,
       token,
-      message: 'Password recovered successfully',
+      message: 'Password reset successfully',
     };
   }
 

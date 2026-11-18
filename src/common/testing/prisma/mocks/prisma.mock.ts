@@ -12,6 +12,11 @@ export const createPrismaMock = () => ({
   revokedToken: {
     upsert: jest.fn(),
   },
+  passwordResetToken: {
+    create: jest.fn(),
+    findFirst: jest.fn(),
+    updateMany: jest.fn(),
+  },
   workspace: {
     findFirst: jest.fn(),
   },

@@ -17,6 +17,9 @@ import { createLoginServiceMock } from '@/common/testing/login/mocks/login-servi
 import { createRegistrationServiceMock } from '@/common/testing/login/mocks/registration-service.mock';
 import { createAccountServiceMock } from '@/common/testing/login/mocks/account-service.mock';
 
+const REQUEST_RESET_MESSAGE =
+  'If an account exists for this email, a password reset link has been sent';
+
 let loginServiceMock: ReturnType<typeof createLoginServiceMock>;
 let registrationServiceMock: ReturnType<typeof createRegistrationServiceMock>;
 let accountServiceMock: ReturnType<typeof createAccountServiceMock>;
@@ -89,18 +92,41 @@ describe('LoginResolver', () => {
     });
   });
 
-  describe('recoverPassword', () => {
-    it('should return the token and recovery message', async () => {
-      const input = { email: 'john@example.com', password: 'NewPassword123!' };
+  describe('requestPasswordReset', () => {
+    const input = { email: 'john@example.com' };
 
-      loginServiceMock.recoverPassword.mockResolvedValue(MOCK_TOKEN);
+    it('should call the service with the input and return only the fixed message', async () => {
+      loginServiceMock.requestPasswordReset.mockResolvedValue(undefined);
 
-      const result = await resolver.recoverPassword(input);
+      const result = await resolver.requestPasswordReset(input);
 
-      expect(loginServiceMock.recoverPassword).toHaveBeenCalledWith(input);
+      expect(loginServiceMock.requestPasswordReset).toHaveBeenCalledWith(input);
+      expect(result).toEqual({ message: REQUEST_RESET_MESSAGE });
+    });
+
+    it('should return the same message when the service does nothing (unknown email)', async () => {
+      loginServiceMock.requestPasswordReset.mockResolvedValue(undefined);
+      const known = await resolver.requestPasswordReset(input);
+
+      const unknown = await resolver.requestPasswordReset({ email: 'nobody@example.com' });
+
+      expect(unknown).toEqual(known);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should return the user, the token and the success message', async () => {
+      const input = { token: 'reset-token', newPassword: 'NewPassword123!' };
+      const user = buildUserType(buildSafeUser());
+      loginServiceMock.resetPassword.mockResolvedValue({ user, token: MOCK_TOKEN });
+
+      const result = await resolver.resetPassword(input);
+
+      expect(loginServiceMock.resetPassword).toHaveBeenCalledWith(input);
       expect(result).toEqual({
+        user,
         token: MOCK_TOKEN,
-        message: 'Password recovered successfully',
+        message: 'Password reset successfully',
       });
     });
   });

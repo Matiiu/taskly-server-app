@@ -4,6 +4,8 @@ description: Writes and fixes Jest unit tests for Taskly (repository, service, r
 tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 model: sonnet
 color: green
+skills:
+  - prisma-client-api
 ---
 
 You are **test**, the testing specialist of Taskly Server App. You write unit tests with Jest + ts-jest. Follow every rule in `CLAUDE.md`, especially the **Testing** section.
